@@ -37,6 +37,13 @@ export function useFileTransfer({ send }: Options) {
   const [progress, setProgress] = useState<TransferProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const incoming = useRef<Map<string, IncomingTransfer>>(new Map());
+  /**
+   * Chunks arrive faster than they can be written, and the socket handler cannot await us.
+   * Without serialising, two `appendChunk` calls interleave on the same append stream and the
+   * file ends up scrambled or short — which looks like a file that is fine for a bit and then
+   * blank. Every inbound file envelope is chained onto this promise.
+   */
+  const queue = useRef<Promise<void>>(Promise.resolve());
 
   const sendFile = useCallback(async () => {
     setError(null);
@@ -107,7 +114,7 @@ export function useFileTransfer({ send }: Options) {
     setProgress(null);
   }, [send]);
 
-  const handleEnvelope = useCallback(async (envelope: Envelope) => {
+  const processEnvelope = useCallback(async (envelope: Envelope) => {
     if (envelope.type === 'file_offer') {
       const total = Math.max(1, Math.ceil(envelope.sizeBytes / FILE_CHUNK_BYTES));
       try {
@@ -176,6 +183,18 @@ export function useFileTransfer({ send }: Options) {
       setProgress(null);
     }
   }, []);
+
+  /** Serialises inbound file envelopes; see `queue` above. */
+  const handleEnvelope = useCallback(
+    (envelope: Envelope) => {
+      queue.current = queue.current
+        .then(() => processEnvelope(envelope))
+        // One failed chunk must not wedge the queue for everything after it.
+        .catch(() => undefined);
+      return queue.current;
+    },
+    [processEnvelope],
+  );
 
   /** Drops partial transfers when the link goes away, so no temp files are orphaned. */
   const abortAll = useCallback(() => {

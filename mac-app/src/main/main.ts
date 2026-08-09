@@ -299,6 +299,24 @@ app.whenReady().then(() => {
   // `npm run dev` opens the popup immediately; otherwise it only appears on a tray click,
   // which makes the UI awkward to iterate on.
   if (process.argv.includes('--dev')) togglePopup();
+
+  // Dev helper: `electron . --send-file <path>` sends a file as soon as a phone connects,
+  // so the transfer path can be exercised without performing a drag gesture by hand.
+  const sendFileIndex = process.argv.indexOf('--send-file');
+  const devFilePath = sendFileIndex >= 0 ? process.argv[sendFileIndex + 1] : undefined;
+  if (devFilePath) {
+    const trySend = () => {
+      if (server.getState() !== 'connected') return;
+      server.off('state', trySend);
+      void transfers.send(
+        devFilePath,
+        envelope => server.send(envelope),
+        () => server.isDrained(),
+      );
+    };
+    server.on('state', trySend);
+    trySend();
+  }
   ipcMain.handle('quit', () => app.quit());
 
   ipcMain.handle('send-files', async (_event, filePaths: unknown) => {
