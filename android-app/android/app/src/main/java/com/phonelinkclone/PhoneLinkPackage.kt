@@ -10,7 +10,11 @@ class PhoneLinkPackage : ReactPackage {
   override fun createNativeModules(
     reactContext: ReactApplicationContext,
   ): List<NativeModule> =
-    listOf(NotificationBridgeModule(reactContext), SecureStoreModule(reactContext))
+    listOf(
+      NotificationBridgeModule(reactContext),
+      SecureStoreModule(reactContext),
+      ClipboardModule(reactContext),
+    )
 
   override fun createViewManagers(
     reactContext: ReactApplicationContext,

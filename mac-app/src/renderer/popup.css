@@ -62,6 +62,7 @@ li img { width: 28px; height: 28px; border-radius: 6px; flex: none; }
 
 footer {
   display: flex;
+  gap: 10px;
   justify-content: space-between;
   padding: 8px 14px;
   border-top: 1px solid var(--line);

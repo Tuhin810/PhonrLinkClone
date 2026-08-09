@@ -57,8 +57,14 @@ function NotificationRow({ item }: { item: NotificationMessage }) {
 
 function App(): React.JSX.Element {
   const isDark = useColorScheme() === 'dark';
-  const { state, openSettings, saveManualHost, beginPairing, unpair } =
-    useNotificationMirror();
+  const {
+    state,
+    openSettings,
+    saveManualHost,
+    beginPairing,
+    unpair,
+    setClipboardEnabled,
+  } = useNotificationMirror();
   const [showManual, setShowManual] = React.useState(false);
   const [scanning, setScanning] = React.useState(false);
   const [draftHost, setDraftHost] = React.useState('');
@@ -176,6 +182,17 @@ function App(): React.JSX.Element {
           </Text>
         </TouchableOpacity>
       )}
+
+      <View style={styles.counters}>
+        <TouchableOpacity onPress={() => setClipboardEnabled(!state.clipboardEnabled)}>
+          <Text style={styles.link}>
+            Clipboard sync: {state.clipboardEnabled ? 'on' : 'off'}
+          </Text>
+        </TouchableOpacity>
+        {state.clipboardSkipped && (
+          <Text style={styles.counterText}>Last clipboard item too large — skipped</Text>
+        )}
+      </View>
 
       <View style={styles.counters}>
         <Text style={styles.counterText}>Sent {state.sentCount}</Text>

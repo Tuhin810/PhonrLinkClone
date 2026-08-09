@@ -18,6 +18,12 @@ export const SERVICE_TYPE = 'phonelink';
 /** Chunk size for file transfer. Shared so sender and receiver cannot disagree. */
 export const FILE_CHUNK_BYTES = 64 * 1024;
 
+/**
+ * Clipboard payloads above this are skipped rather than sent. Large clips are usually images
+ * or file contents coerced to text, and shipping them chunk-free would stall the link.
+ */
+export const CLIPBOARD_MAX_BYTES = 256 * 1024;
+
 /** Heartbeat cadence, and how many missed pongs before we call it disconnected. */
 export const PING_INTERVAL_MS = 15000;
 export const MISSED_PINGS_BEFORE_DISCONNECT = 2;

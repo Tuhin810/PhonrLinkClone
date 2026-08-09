@@ -6,6 +6,7 @@ import { clearPairedMac, getPairedMac, setPairedMac, type PairedMac } from './cr
 import { FEED_LIMIT, MAC_PORT, macWsUrl } from './config';
 import { MacDiscovery, type DiscoveredMac } from './discovery/discovery';
 import { getManualHost, setManualHost } from './discovery/settings';
+import { useClipboardSync } from './clipboard/useClipboardSync';
 import { NotificationBridge } from './native/notificationBridge';
 import { ConnectionState, LinkClient } from './net/linkClient';
 
@@ -33,6 +34,9 @@ export interface MirrorState {
   manualHost: string | null;
   /** The Mac we are paired with, if any. Null means pairing is still required. */
   paired: PairedMac | null;
+  clipboardEnabled: boolean;
+  /** Set when a clipboard payload was skipped for being oversized. */
+  clipboardSkipped: boolean;
   /** Recent discovery events, shown in the UI because JS logs only reach Metro. */
   discoveryLog: string[];
   /** True once discovery has run long enough that silence means the network blocks it. */
@@ -57,6 +61,8 @@ export function useNotificationMirror() {
   const [paired, setPaired] = useState<PairedMac | null>(null);
   /** Held only for the duration of a first pairing; never persisted. */
   const [pendingToken, setPendingToken] = useState<string | null>(null);
+  const [clipboardEnabled, setClipboardEnabled] = useState(true);
+  const [clipboardSkipped, setClipboardSkipped] = useState(false);
 
   const clientRef = useRef<LinkClient | null>(null);
 
@@ -172,6 +178,12 @@ export function useNotificationMirror() {
       macPubKey: pairedPubKey,
       pairingToken: pendingToken,
       onStateChange: setConnection,
+      onEnvelope: envelope => {
+        if (envelope.type !== 'clipboard_update') return;
+        // Ignore anything we originated; the Mac tags what it sends.
+        if (envelope.sourceDevice === 'phone') return;
+        applyRemoteRef.current(envelope.content);
+      },
       onPaired: (macPubKey, macName) => {
         // Re-pairing with the same Mac is the normal case on every reconnect. Only touch
         // state when something actually changed, so this cannot feed back into the effect.
@@ -199,6 +211,23 @@ export function useNotificationMirror() {
       clientRef.current = null;
     };
   }, [target, identityPubKey, pairedPubKey, pendingToken]);
+
+  const sendViaClient = useCallback(
+    (envelope: Parameters<LinkClient['send']>[0]) =>
+      clientRef.current?.send(envelope) ?? false,
+    [],
+  );
+
+  const { applyRemote } = useClipboardSync({
+    enabled: clipboardEnabled,
+    send: sendViaClient,
+    onSkippedTooLarge: useCallback(() => setClipboardSkipped(true), []),
+  });
+
+  // Inbound clipboard updates arrive on the socket, which is rebuilt on reconnects, so the
+  // handler is kept in a ref the socket effect can read.
+  const applyRemoteRef = useRef(applyRemote);
+  applyRemoteRef.current = applyRemote;
 
   const openSettings = useCallback(async () => {
     await NotificationBridge.openNotificationAccessSettings();
@@ -234,6 +263,8 @@ export function useNotificationMirror() {
       deviceName: discovered?.deviceName ?? null,
       manualHost,
       paired,
+      clipboardEnabled,
+      clipboardSkipped,
       discoveryLog,
       discoveryLikelyBlocked,
     } as MirrorState,
@@ -242,5 +273,6 @@ export function useNotificationMirror() {
     saveManualHost,
     beginPairing,
     unpair,
+    setClipboardEnabled,
   };
 }

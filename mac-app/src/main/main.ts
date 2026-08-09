@@ -10,6 +10,7 @@ import {
   assertNever,
 } from '@phonelink/shared';
 import { Advertiser } from './advertiser';
+import { ClipboardSync } from './clipboardSync';
 import { Keystore } from './keystore';
 import { LinkServer, type ConnectionState } from './linkServer';
 import { NotificationPresenter } from './notifications';
@@ -39,6 +40,7 @@ let server: LinkServer;
 const advertiser = new Advertiser(DEFAULT_PORT);
 /** Last rejected connection attempt, shown in the popup instead of failing silently. */
 let lastRejection: string | null = null;
+const clipboardSync = new ClipboardSync();
 let feed: FeedItem[] = [];
 let connection: ConnectionState = 'waiting';
 
@@ -132,6 +134,7 @@ async function pushState(): Promise<void> {
     feed,
     qr: primary ? await pairingQrDataUrl(primary) : null,
     peerName: server.getPeerName(),
+    clipboardEnabled: clipboardSync.isEnabled(),
     pairedCount: keystore.listTrusted().length,
     lastRejection,
   });
@@ -164,9 +167,17 @@ function handleEnvelope(envelope: Envelope): void {
       return;
 
     // Declared in the protocol but owned by later phases. Ignored, not an error.
+    case 'clipboard_update':
+      // Our own text coming back would restart the loop; the phone tags what it sends.
+      if (envelope.sourceDevice !== 'mac') {
+        console.log(`[clipboard] from phone, ${envelope.content.length} chars`);
+        clipboardSync.applyRemote(envelope.content);
+      }
+      return;
+
+    // Declared in the protocol but owned by later phases. Ignored, not an error.
     case 'call_incoming':
     case 'call_ended':
-    case 'clipboard_update':
     case 'file_offer':
     case 'file_chunk':
     case 'file_complete':
@@ -219,12 +230,31 @@ app.whenReady().then(() => {
   server.start();
   advertiser.start();
 
+  clipboardSync.on('changed', content => {
+    console.log(`[clipboard] local change, ${content.length} chars -> phone`);
+    server.send({
+      type: 'clipboard_update',
+      content,
+      sourceDevice: 'mac',
+      timestamp: Date.now(),
+    });
+  });
+  clipboardSync.on('skipped', bytes =>
+    console.warn(`[clipboard] skipped ${bytes} bytes: over the size cap`),
+  );
+  clipboardSync.start();
+
   ipcMain.handle('request-state', () => pushState());
 
   // `npm run dev` opens the popup immediately; otherwise it only appears on a tray click,
   // which makes the UI awkward to iterate on.
   if (process.argv.includes('--dev')) togglePopup();
   ipcMain.handle('quit', () => app.quit());
+
+  ipcMain.handle('toggle-clipboard', () => {
+    clipboardSync.setEnabled(!clipboardSync.isEnabled());
+    void pushState();
+  });
 
   ipcMain.handle('unpair-all', () => {
     keystore.unpairAll();
@@ -249,6 +279,7 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => undefined);
 
 app.on('before-quit', () => {
+  clipboardSync.stop();
   advertiser.stop();
   server.stop();
   presenter.dismissAll();

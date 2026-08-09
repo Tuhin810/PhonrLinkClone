@@ -10,5 +10,6 @@ contextBridge.exposeInMainWorld('phonelink', {
   requestState: () => ipcRenderer.invoke('request-state'),
   toggleConnection: () => ipcRenderer.invoke('toggle-connection'),
   unpairAll: () => ipcRenderer.invoke('unpair-all'),
+  toggleClipboard: () => ipcRenderer.invoke('toggle-clipboard'),
   quit: () => ipcRenderer.invoke('quit'),
 });

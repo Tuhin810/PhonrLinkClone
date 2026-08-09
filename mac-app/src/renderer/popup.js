@@ -8,6 +8,7 @@ const empty = document.getElementById('empty');
 
 const toggle = document.getElementById('toggle');
 const rejection = document.getElementById('rejection');
+const clipboardButton = document.getElementById('clipboard');
 
 const STATUS_TEXT = {
   connected: 'Phone connected',
@@ -24,6 +25,7 @@ function render(state) {
       ? state.peerName
       : (STATUS_TEXT[state.connection] ?? 'Waiting for phone…');
   toggle.textContent = paused ? 'Allow connections' : 'Disconnect';
+  clipboardButton.textContent = `Clipboard: ${state.clipboardEnabled ? 'on' : 'off'}`;
   // A rejected pairing attempt is worth showing: silence looks like a bug.
   rejection.textContent = state.lastRejection ?? '';
   rejection.classList.toggle('show', Boolean(state.lastRejection));
@@ -75,6 +77,7 @@ function render(state) {
 
 window.phonelink.onState(render);
 window.phonelink.requestState();
+clipboardButton.addEventListener('click', () => window.phonelink.toggleClipboard());
 toggle.addEventListener('click', () => window.phonelink.toggleConnection());
 document.getElementById('unpair').addEventListener('click', () => window.phonelink.unpairAll());
 document.getElementById('quit').addEventListener('click', () => window.phonelink.quit());
