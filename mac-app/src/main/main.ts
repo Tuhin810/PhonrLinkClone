@@ -169,7 +169,10 @@ function handleEnvelope(envelope: Envelope): void {
       void pushState();
       return;
 
-    // Declared in the protocol but owned by later phases. Ignored, not an error.
+    // Mac -> phone only; receiving one back would be the phone misbehaving.
+    case 'call_action':
+      return;
+
     case 'clipboard_update':
       // Our own text coming back would restart the loop; the phone tags what it sends.
       if (envelope.sourceDevice !== 'mac') {
@@ -271,6 +274,17 @@ app.whenReady().then(() => {
   // which makes the UI awkward to iterate on.
   if (process.argv.includes('--dev')) togglePopup();
   ipcMain.handle('quit', () => app.quit());
+
+  ipcMain.handle('call-action', (_event, action: unknown) => {
+    if (action !== 'decline' && action !== 'silence') return;
+    server.send({ type: 'call_action', action });
+    // Declining ends the call; clear our banner rather than waiting for the phone to say so.
+    if (action === 'decline') {
+      presenter.dismissCall();
+      activeCall = null;
+      void pushState();
+    }
+  });
 
   ipcMain.handle('toggle-clipboard', () => {
     clipboardSync.setEnabled(!clipboardSync.isEnabled());

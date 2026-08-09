@@ -193,6 +193,11 @@ function App(): React.JSX.Element {
         <TouchableOpacity onPress={() => sendCurrentClipboard()}>
           <Text style={styles.link}>Send clipboard to Mac</Text>
         </TouchableOpacity>
+        {state.callActionError && (
+          <Text style={styles.counterText}>
+            Call action failed: {state.callActionError}
+          </Text>
+        )}
         {state.clipboardSkipped && (
           <Text style={styles.counterText}>Last clipboard item too large — skipped</Text>
         )}

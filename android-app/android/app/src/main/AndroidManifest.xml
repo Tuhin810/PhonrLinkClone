@@ -13,6 +13,11 @@
          the PHONE_STATE broadcast on most OEMs; without it the Mac shows an unknown caller. -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <!-- Declining a ringing call from the Mac. Answering is deliberately not implemented:
+         the audio would stay on the phone. See docs/CONSTRAINTS.md #1. -->
+    <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
+    <!-- Ringer muting fallback when we are not the default dialer. -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <!-- Optional: turns a number into a name. The app works without it. -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <!-- Scanning the Mac's pairing QR code. Requested at runtime, only while scanning. -->

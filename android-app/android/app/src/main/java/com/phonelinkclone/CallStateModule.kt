@@ -1,7 +1,10 @@
 package com.phonelinkclone
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
+import android.media.AudioManager
+import android.telecom.TelecomManager
 import android.provider.ContactsContract
 import androidx.core.content.ContextCompat
 import com.facebook.react.bridge.Arguments
@@ -43,6 +46,79 @@ class CallStateModule(
       Manifest.permission.READ_PHONE_STATE,
     ) == PackageManager.PERMISSION_GRANTED
     promise.resolve(granted)
+  }
+
+  /**
+   * Rejects the ringing call. Needs `ANSWER_PHONE_CALLS`, which also covers `endCall`.
+   *
+   * Answering is intentionally not offered: the audio would stay on the phone, so a remote
+   * answer button would promise something it cannot deliver. See docs/CONSTRAINTS.md #1.
+   */
+  @ReactMethod
+  fun declineCall(promise: Promise) {
+    val granted = ContextCompat.checkSelfPermission(
+      reactContext,
+      Manifest.permission.ANSWER_PHONE_CALLS,
+    ) == PackageManager.PERMISSION_GRANTED
+    if (!granted) {
+      promise.reject("permission_denied", "ANSWER_PHONE_CALLS has not been granted")
+      return
+    }
+    try {
+      val telecom =
+        reactContext.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
+      @Suppress("MissingPermission")
+      val ended = telecom.endCall()
+      promise.resolve(ended)
+    } catch (e: Exception) {
+      promise.reject("decline_failed", e)
+    }
+  }
+
+  /**
+   * Silences the ringer without touching the call.
+   *
+   * `TelecomManager.silenceRinger()` is the clean route but is restricted to the default dialer
+   * or system apps, so it is attempted first and quietly falls back to muting the ring stream.
+   * The fallback needs Do Not Disturb access on modern Android, which the caller must grant.
+   */
+  @ReactMethod
+  fun silenceRinger(promise: Promise) {
+    val telecom = reactContext.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
+    try {
+      @Suppress("MissingPermission")
+      telecom.silenceRinger()
+      promise.resolve("telecom")
+      return
+    } catch (e: SecurityException) {
+      // Expected unless we are the default dialer; fall through to the audio route.
+    } catch (e: Exception) {
+      // Same treatment: try the fallback rather than failing outright.
+    }
+
+    try {
+      val audio = reactContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+      audio.adjustStreamVolume(AudioManager.STREAM_RING, AudioManager.ADJUST_MUTE, 0)
+      promise.resolve("audio")
+    } catch (e: SecurityException) {
+      promise.reject("dnd_access_required", "Do Not Disturb access is needed to mute the ringer")
+    } catch (e: Exception) {
+      promise.reject("silence_failed", e)
+    }
+  }
+
+  /** Opens the Do Not Disturb access screen, which cannot be granted programmatically. */
+  @ReactMethod
+  fun openDndSettings(promise: Promise) {
+    try {
+      val intent = android.content.Intent(
+        android.provider.Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS,
+      ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+      reactContext.startActivity(intent)
+      promise.resolve(null)
+    } catch (e: Exception) {
+      promise.reject("settings_open_failed", e)
+    }
   }
 
   @ReactMethod

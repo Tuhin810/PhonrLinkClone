@@ -76,6 +76,14 @@ export function validateEnvelope(value: unknown): Envelope {
     case 'call_ended':
       return { type, timestamp: num(o, 'timestamp') };
 
+    case 'call_action': {
+      const action = str(o, 'action');
+      if (action !== 'decline' && action !== 'silence') {
+        throw new ProtocolError('"action" must be "decline" or "silence"');
+      }
+      return { type, action };
+    }
+
     case 'clipboard_update': {
       const sourceDevice = str(o, 'sourceDevice');
       if (sourceDevice !== 'phone' && sourceDevice !== 'mac') {

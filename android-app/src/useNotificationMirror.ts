@@ -37,6 +37,8 @@ export interface MirrorState {
   paired: PairedMac | null;
   /** False when READ_PHONE_STATE was declined; call alerts silently do nothing without it. */
   callPermission: boolean;
+  /** Why the last remote decline/silence failed, if it did. */
+  callActionError: string | null;
   clipboardEnabled: boolean;
   /** Set when a clipboard payload was skipped for being oversized. */
   clipboardSkipped: boolean;
@@ -65,6 +67,7 @@ export function useNotificationMirror() {
   /** Held only for the duration of a first pairing; never persisted. */
   const [pendingToken, setPendingToken] = useState<string | null>(null);
   const [callPermission, setCallPermission] = useState(false);
+  const [callActionError, setCallActionError] = useState<string | null>(null);
   const [clipboardEnabled, setClipboardEnabled] = useState(true);
   const [clipboardSkipped, setClipboardSkipped] = useState(false);
 
@@ -100,6 +103,7 @@ export function useNotificationMirror() {
       PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE,
       PermissionsAndroid.PERMISSIONS.READ_CALL_LOG,
       PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
+      PermissionsAndroid.PERMISSIONS.ANSWER_PHONE_CALLS,
     ])
       .then(() => CallState.hasPhonePermission())
       .then(setCallPermission)
@@ -217,6 +221,16 @@ export function useNotificationMirror() {
       pairingToken: pendingToken,
       onStateChange: setConnection,
       onEnvelope: envelope => {
+        if (envelope.type === 'call_action') {
+          // Failures are reported rather than swallowed: a decline that silently does nothing
+          // is worse than one that says it could not.
+          const request =
+            envelope.action === 'decline'
+              ? CallState.declineCall()
+              : CallState.silenceRinger();
+          request.catch((error: Error) => setCallActionError(error.message));
+          return;
+        }
         if (envelope.type !== 'clipboard_update') return;
         // Ignore anything we originated; the Mac tags what it sends.
         if (envelope.sourceDevice === 'phone') return;
@@ -303,6 +317,7 @@ export function useNotificationMirror() {
       manualHost,
       paired,
       callPermission,
+      callActionError,
       clipboardEnabled,
       clipboardSkipped,
       discoveryLog,

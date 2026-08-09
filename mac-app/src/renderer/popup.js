@@ -89,6 +89,12 @@ function render(state) {
 
 window.phonelink.onState(render);
 window.phonelink.requestState();
+document
+  .getElementById('call-decline')
+  .addEventListener('click', () => window.phonelink.callAction('decline'));
+document
+  .getElementById('call-silence')
+  .addEventListener('click', () => window.phonelink.callAction('silence'));
 clipboardButton.addEventListener('click', () => window.phonelink.toggleClipboard());
 toggle.addEventListener('click', () => window.phonelink.toggleConnection());
 document.getElementById('unpair').addEventListener('click', () => window.phonelink.unpairAll());

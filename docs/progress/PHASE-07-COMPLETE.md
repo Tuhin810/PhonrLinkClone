@@ -46,11 +46,41 @@ stale whether it was answered or dismissed.
   "Answer on your phone", plus a green banner in the popup, both clearing when the call stops
   ringing. The Mac log will show `[call] incoming from …` and `[call] ended`.
 
+## Added after the first pass: remote decline and silence
+Tuhin asked for answering from the Mac. Answering is not implementable in a way that works —
+see the rewritten CONSTRAINTS #1 — so after laying out the trade-off he chose decline + silence,
+which are genuinely useful without audio routing.
+
+- `PROTOCOL_VERSION` bumped to **3** with a new `call_action` envelope (`decline` | `silence`),
+  Mac -> phone only. A version bump rather than a silent addition, so a stale phone build fails
+  at pairing instead of ignoring the button.
+- Android `declineCall()` uses `TelecomManager.endCall()` under `ANSWER_PHONE_CALLS`
+  (granted=true on device).
+- `silenceRinger()` tries `TelecomManager.silenceRinger()` first — restricted to the default
+  dialer, so it usually throws — then falls back to muting the ring stream, which needs Do Not
+  Disturb access. `openDndSettings()` deep-links there since it cannot be granted programmatically.
+- Mac popup call banner gained **Decline** and **Silence ringer** buttons, and the hint now
+  reads "Answer on your phone — audio stays there".
+- Declining clears the Mac banner immediately rather than waiting for the phone to report back.
+
+### Also fixed here: "Unknown caller" on Samsung
+Samsung strips `EXTRA_INCOMING_NUMBER` from the PHONE_STATE broadcast, so the first real call
+showed as unknown while the dialer's own notification correctly said "Antora". The caller name
+is now scraped from that notification — we already hold notification-listener access, so this
+needs no new permission and no `CallScreeningService`. Matching requires `CATEGORY_CALL` **and**
+a dialer-ish package; a 1.5s grace window lets the notification arrive before alerting anyway,
+and a contacts lookup on the number still wins when a number is available.
+
 ## Known gaps carried forward
 - **The caller number is OEM-dependent.** If Samsung withholds `EXTRA_INCOMING_NUMBER`, the
   alert shows an unknown caller. A `CallScreeningService` would get the number reliably but
   requires taking over call screening — too invasive for this.
 - **No call history** — only live alerts.
+- **Remote answering is not offered**, by design (CONSTRAINTS #1).
+- **Failures of a remote decline are shown on the phone, not the Mac.** There is no envelope for
+  reporting an action result back, so the Mac cannot say "decline failed". Worth a `call_action_result`
+  message if this proves annoying in use.
+- **Silencing needs Do Not Disturb access** on most devices, granted manually in settings.
 - **No test coverage for the call path**: the Mac's routing lives in `main.ts`, which imports
   electron and so cannot be exercised by the node test runner. Moving envelope routing into a
   testable module is worth doing in Phase 9.

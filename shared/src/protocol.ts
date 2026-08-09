@@ -5,9 +5,9 @@
 
 /**
  * Bumped on any breaking change. Exchanged during pairing so mismatches fail loudly.
- * v2 added the encrypted channel and `pairingProof`.
+ * v2 added the encrypted channel and `pairingProof`; v3 added `call_action`.
  */
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 /** Default LAN port the Mac listens on. */
 export const DEFAULT_PORT = 47711;
@@ -103,6 +103,18 @@ export interface CallIncomingMessage {
   timestamp: number;
 }
 
+/**
+ * Mac -> phone request to act on a ringing call.
+ *
+ * Answering is deliberately absent: the phone would pick up but the audio would stay on the
+ * phone, since macOS cannot act as a Bluetooth hands-free device and capturing call audio needs
+ * a privileged permission. See docs/CONSTRAINTS.md #1.
+ */
+export interface CallActionMessage {
+  type: 'call_action';
+  action: 'decline' | 'silence';
+}
+
 export interface CallEndedMessage {
   type: 'call_ended';
   timestamp: number;
@@ -170,6 +182,7 @@ export type Envelope =
   | NotificationDismissMessage
   | CallIncomingMessage
   | CallEndedMessage
+  | CallActionMessage
   | ClipboardUpdateMessage
   | FileOfferMessage
   | FileChunkMessage

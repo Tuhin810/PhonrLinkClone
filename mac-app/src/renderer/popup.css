@@ -58,6 +58,9 @@ li img { width: 28px; height: 28px; border-radius: 6px; flex: none; }
 .call.show { display: block; }
 .call-title { margin: 0; font-weight: 700; }
 .call-hint { margin: 2px 0 0; font-size: 11px; opacity: 0.8; }
+.call-actions { display: flex; gap: 12px; margin-top: 8px; }
+.call-actions button { color: var(--fg); font-weight: 600; }
+.call-actions .danger { color: var(--warn); }
 
 .pairing {
   display: none;

@@ -3,10 +3,18 @@
 These are accepted limitations, not bugs. Surface them in-app where a user would otherwise
 be confused.
 
-## 1. Remote call answering is out of scope
-Windows Phone Link routes call audio via proprietary OEM/Bluetooth integration. A DIY app can
-**detect and alert** but not answer or route audio. `ANSWER_PHONE_CALLS` is also heavily
-scrutinized by Google Play. Phase 7 delivers alerts only; the answer action stays on the phone.
+## 1. Remote call *answering* is out of scope; declining is implemented
+Windows Phone Link works because the PC pairs as a Bluetooth hands-free device and the phone
+routes call audio to it over HFP. macOS provides no API to act as a hands-free *device*, and
+streaming the audio ourselves would need `CAPTURE_AUDIO_OUTPUT` on Android — a privileged
+permission unavailable to normal apps. So a remote "Answer" button would connect the call while
+the audio stayed on the phone: a promise the app cannot keep.
+
+**What Phase 7 delivers:** alerts, plus **Decline** and **Silence ringer** from the Mac
+(`TelecomManager.endCall()` under `ANSWER_PHONE_CALLS`). Those are useful without audio routing
+— killing a spam call without touching the phone. Answering is deliberately absent.
+
+`ANSWER_PHONE_CALLS` draws extra Google Play scrutiny; fine for sideloaded personal use.
 
 ## 2. Android 10+ background clipboard reads are restricted
 `ClipboardManager` reads only work when the app has focus or is the default IME. **Confirmed on
