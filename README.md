@@ -5,9 +5,15 @@ and file transfer. No cloud, no relay — if the devices aren't on the same wifi
 shows "disconnected" and keeps retrying.
 
 ## Status
-**Phase 2 of 9 complete** (Android notification capture, verified end-to-end on device) —
-see [docs/progress/PHASE-02-COMPLETE.md](docs/progress/PHASE-02-COMPLETE.md).
-Next up: Phase 3, the Mac receiver — which completes the vertical slice.
+**Phase 3 of 9 complete — the vertical slice works end to end.** Android notifications now
+mirror to macOS Notification Center over the LAN. See
+[docs/progress/PHASE-03-COMPLETE.md](docs/progress/PHASE-03-COMPLETE.md).
+Next up: Phase 4, mDNS discovery to remove the hardcoded IP.
+
+```bash
+cd mac-app && npm start      # menu bar receiver
+cd android-app && npm run android
+```
 
 Working on this in a new session? **Read [INSTRUCTIONS.md](INSTRUCTIONS.md) first** — it
 explains how to determine current progress and the rules every phase follows.

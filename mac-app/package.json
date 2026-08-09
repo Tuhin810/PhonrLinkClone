@@ -1,0 +1,24 @@
+{
+  "name": "@phonelink/mac-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PhoneLink Clone \u2014 macOS menu bar receiver",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "build": "npm run build:shared && tsc -p tsconfig.json && npm run copy-assets",
+    "copy-assets": "mkdir -p dist/renderer && cp src/renderer/*.html src/renderer/*.css src/renderer/*.js dist/renderer/",
+    "start": "npm run build && env -u ELECTRON_RUN_AS_NODE electron .",
+    "dev": "npm run build && env -u ELECTRON_RUN_AS_NODE electron . --dev",
+    "build:shared": "npm --prefix ../shared run build"
+  },
+  "dependencies": {
+    "@phonelink/shared": "file:../shared",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.13",
+    "electron": "^33.2.0",
+    "typescript": "^5.6.0"
+  }
+}

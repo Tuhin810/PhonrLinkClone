@@ -9,7 +9,7 @@ before approving the next phase. Nothing from a later phase gets built early.
 |-------|------|-------------|--------|
 | 1 | Protocol contract | `shared/` package: `Envelope` type + runtime validators | ✅ [Done](progress/PHASE-01-COMPLETE.md) |
 | 2 | Android notification capture | Kotlin `NotificationListenerModule` + WS client, hardcoded Mac IP | ✅ [Done](progress/PHASE-02-COMPLETE.md) |
-| 3 | Mac receiver | Electron tray app, WS server, native macOS notifications | ⬜ Not started |
+| 3 | Mac receiver | Electron tray app, WS server, native macOS notifications | ✅ [Done](progress/PHASE-03-COMPLETE.md) |
 | 4 | Discovery | mDNS/Bonjour both sides, remove hardcoded IPs | ⬜ Not started |
 | 5 | Pairing + crypto | QR pairing, shared secret, tweetnacl-encrypted channel | ⬜ Not started |
 | 6 | Clipboard sync | Bidirectional, echo-loop guarded | ⬜ Not started |

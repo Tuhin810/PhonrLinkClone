@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src data:;"
+    />
+    <title>PhoneLink Clone</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <div class="row">
+        <span id="dot" class="dot waiting"></span>
+        <span id="status">Waiting for phone…</span>
+      </div>
+      <div id="address" class="muted"></div>
+    </header>
+    <main>
+      <ul id="feed"></ul>
+      <p id="empty" class="empty">
+        No notifications yet. Trigger one on your phone.
+      </p>
+    </main>
+    <footer>
+      <button id="quit">Quit</button>
+    </footer>
+    <script src="popup.js"></script>
+  </body>
+</html>
