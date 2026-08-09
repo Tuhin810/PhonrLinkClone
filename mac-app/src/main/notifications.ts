@@ -52,10 +52,18 @@ export class NotificationPresenter {
     if (!Notification.isSupported()) return;
     this.dismissCall();
 
-    const caller = message.callerName ?? message.callerNumber ?? 'Unknown caller';
+    // OEMs that strip the number leave us with only a name, and vice versa. Build the text
+    // from whatever actually arrived rather than printing empty separators.
+    const number = message.callerNumber?.trim();
+    const caller = message.callerName?.trim() || number || 'Unknown caller';
+    const body =
+      message.callerName?.trim() && number
+        ? `${number}\nAnswer on your phone`
+        : 'Answer on your phone';
+
     const notification = new Notification({
       title: `Incoming call — ${caller}`,
-      body: message.callerName ? `${message.callerNumber}\nAnswer on your phone` : 'Answer on your phone',
+      body,
       urgency: 'critical',
       timeoutType: 'never',
       silent: false,

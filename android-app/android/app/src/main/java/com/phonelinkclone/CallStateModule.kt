@@ -56,10 +56,13 @@ class CallStateModule(
     super.invalidate()
   }
 
-  override fun onRinging(number: String?) {
+  override fun onRinging(number: String?, callerName: String?) {
+    // Prefer a contacts match on the number; fall back to whatever the dialer's own
+    // notification called them.
+    val name = lookupContactName(number) ?: callerName
     val payload: WritableMap = Arguments.createMap().apply {
       putString("callerNumber", number ?: "")
-      lookupContactName(number)?.let { putString("callerName", it) }
+      name?.takeIf { it.isNotBlank() }?.let { putString("callerName", it) }
     }
     emit(EVENT_INCOMING, payload)
   }

@@ -30,9 +30,9 @@ function render(state) {
   clipboardButton.textContent = `Clipboard: ${state.clipboardEnabled ? 'on' : 'off'}`;
   if (state.activeCall) {
     const { callerName, callerNumber } = state.activeCall;
-    callCaller.textContent = callerName
-      ? `${callerName} · ${callerNumber || 'no number'}`
-      : callerNumber || 'Unknown caller';
+    // Show whichever pieces we actually have; no empty separators.
+    callCaller.textContent =
+      [callerName, callerNumber].filter(Boolean).join(' · ') || 'Unknown caller';
     call.classList.add('show');
   } else {
     call.classList.remove('show');

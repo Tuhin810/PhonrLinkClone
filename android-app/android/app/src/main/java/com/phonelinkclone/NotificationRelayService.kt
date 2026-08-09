@@ -24,6 +24,11 @@ class NotificationRelayService : NotificationListenerService() {
     private const val ICON_SIZE_PX = 64
     /** Guards against a runaway base64 payload from an unusually large icon. */
     private const val MAX_ICON_BASE64_CHARS = 32_000
+
+    private val DIALER_HINTS = listOf("dialer", "incallui", "telecom", "phone")
+
+    /** Titles that are a label rather than the caller's name. */
+    private val LABEL_TITLES = listOf("Incoming call", "Ongoing call", "Calling")
   }
 
   override fun onListenerConnected() {
@@ -35,6 +40,11 @@ class NotificationRelayService : NotificationListenerService() {
     // Never mirror our own foreground-service notification: the Mac would show it, and any
     // notification we post in response would loop straight back in.
     if (sbn.packageName == packageName) return
+
+    // The dialer's incoming-call notification is the only reliable source of the caller's
+    // identity on OEMs that strip EXTRA_INCOMING_NUMBER from the PHONE_STATE broadcast.
+    // Checked before the isOngoing filter below, because call notifications are ongoing.
+    captureCallerIfCallNotification(sbn)
 
     // Ongoing notifications are progress bars, media controls and persistent services. They
     // update many times a second and are noise on a desktop.
@@ -64,6 +74,34 @@ class NotificationRelayService : NotificationListenerService() {
     if (sbn.packageName == packageName) return
     NotificationEventBus.emitRemoved(sbn.key)
   }
+
+  /**
+   * Feeds the caller's display name to [CallEventBus] when this is a dialer call notification.
+   *
+   * Matching is on `CATEGORY_CALL` plus a dialer-ish package name: category alone is used by a
+   * few messaging apps for missed-call summaries, and package alone would catch voicemail and
+   * call-ended notices.
+   */
+  private fun captureCallerIfCallNotification(sbn: StatusBarNotification) {
+    val notification = sbn.notification ?: return
+    if (notification.category != Notification.CATEGORY_CALL) return
+    if (!isDialerPackage(sbn.packageName)) return
+
+    val extras = notification.extras
+    val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim()
+    if (title.isNullOrEmpty()) return
+
+    // "Incoming call" style titles are the label, not the caller; the name is then in the text.
+    val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim()
+    val caller = if (LABEL_TITLES.any { title.equals(it, ignoreCase = true) }) text else title
+    if (caller.isNullOrEmpty()) return
+
+    Log.i(TAG, "caller identified from ${sbn.packageName}")
+    CallEventBus.setCallerHint(caller)
+  }
+
+  private fun isDialerPackage(packageName: String): Boolean =
+    DIALER_HINTS.any { packageName.contains(it, ignoreCase = true) }
 
   /** Small icon as a downscaled base64 PNG, or null if it could not be rendered. */
   private fun extractIcon(sbn: StatusBarNotification): String? {
