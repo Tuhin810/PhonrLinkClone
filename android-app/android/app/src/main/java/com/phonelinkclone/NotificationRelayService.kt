@@ -1,0 +1,96 @@
+package com.phonelinkclone
+
+import android.app.Notification
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
+import android.service.notification.NotificationListenerService
+import android.service.notification.StatusBarNotification
+import android.util.Base64
+import android.util.Log
+import java.io.ByteArrayOutputStream
+
+/**
+ * Reads posted notifications and forwards them to JS via [NotificationEventBus].
+ *
+ * The user must grant access manually in system settings; there is no programmatic grant.
+ * See docs/CONSTRAINTS.md #5.
+ */
+class NotificationRelayService : NotificationListenerService() {
+
+  companion object {
+    private const val TAG = "PhoneLinkListener"
+    private const val ICON_SIZE_PX = 64
+    /** Guards against a runaway base64 payload from an unusually large icon. */
+    private const val MAX_ICON_BASE64_CHARS = 32_000
+  }
+
+  override fun onListenerConnected() {
+    super.onListenerConnected()
+    Log.i(TAG, "notification listener connected")
+  }
+
+  override fun onNotificationPosted(sbn: StatusBarNotification) {
+    // Never mirror our own foreground-service notification: the Mac would show it, and any
+    // notification we post in response would loop straight back in.
+    if (sbn.packageName == packageName) return
+
+    // Ongoing notifications are progress bars, media controls and persistent services. They
+    // update many times a second and are noise on a desktop.
+    if (sbn.isOngoing) return
+
+    val extras = sbn.notification.extras
+    val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
+    val text = (extras.getCharSequence(Notification.EXTRA_TEXT)
+      ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT))?.toString().orEmpty()
+
+    // A notification with neither title nor body carries nothing worth mirroring.
+    if (title.isBlank() && text.isBlank()) return
+
+    NotificationEventBus.emitPosted(
+      NotificationEventBus.PostedNotification(
+        key = sbn.key,
+        packageName = sbn.packageName,
+        title = title,
+        text = text,
+        timestamp = if (sbn.postTime > 0) sbn.postTime else System.currentTimeMillis(),
+        iconBase64 = extractIcon(sbn),
+      )
+    )
+  }
+
+  override fun onNotificationRemoved(sbn: StatusBarNotification) {
+    if (sbn.packageName == packageName) return
+    NotificationEventBus.emitRemoved(sbn.key)
+  }
+
+  /** Small icon as a downscaled base64 PNG, or null if it could not be rendered. */
+  private fun extractIcon(sbn: StatusBarNotification): String? {
+    return try {
+      val drawable: Drawable = sbn.notification.smallIcon?.loadDrawable(applicationContext)
+        ?: return null
+      val bitmap = drawable.toScaledBitmap(ICON_SIZE_PX)
+      val stream = ByteArrayOutputStream()
+      bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+      bitmap.recycle()
+      val encoded = Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP)
+      if (encoded.length > MAX_ICON_BASE64_CHARS) null else encoded
+    } catch (e: Exception) {
+      // An unrenderable icon must never cost us the notification itself.
+      Log.w(TAG, "icon extraction failed for ${sbn.packageName}", e)
+      null
+    }
+  }
+
+  private fun Drawable.toScaledBitmap(size: Int): Bitmap {
+    if (this is BitmapDrawable && bitmap != null) {
+      return Bitmap.createScaledBitmap(bitmap, size, size, true)
+    }
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    setBounds(0, 0, size, size)
+    draw(canvas)
+    return bitmap
+  }
+}
