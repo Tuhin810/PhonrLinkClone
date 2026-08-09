@@ -20,9 +20,9 @@ still answer on the phone). See
 [docs/progress/PHASE-07-COMPLETE.md](docs/progress/PHASE-07-COMPLETE.md).
 **Phase 8 of 9 complete**: chunked file transfer both directions, drag-and-drop on the Mac and
 a picker on the phone. See [docs/progress/PHASE-08-COMPLETE.md](docs/progress/PHASE-08-COMPLETE.md).
-**Phase 8.5 complete**: live screen mirroring with remote tap/swipe control. See
-[docs/progress/PHASE-08b-SCREEN-MIRROR.md](docs/progress/PHASE-08b-SCREEN-MIRROR.md).
-Next up: Phase 9, polish — the last phase.
+**Phase 8.5**: screen mirroring works; **remote touch is not working yet** — diagnosis and the
+next step are in [docs/progress/SESSION-2026-08-09.md](docs/progress/SESSION-2026-08-09.md).
+After that: Phase 9, polish — the last phase.
 
 ```bash
 cd mac-app && npm start      # menu bar receiver

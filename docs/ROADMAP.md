@@ -16,11 +16,15 @@ before approving the next phase. Nothing from a later phase gets built early.
 | 6 | Clipboard sync | Bidirectional, echo-loop guarded | ✅ [Done](progress/PHASE-06-COMPLETE.md) — Mac→phone verified; phone→Mac needs app focus |
 | 7 | Call alerts | `CallStateModule` → Mac banner (detect only, never answer) | ✅ [Done](progress/PHASE-07-COMPLETE.md) — needs a real call to confirm |
 | 8 | File transfer | Chunked offer/chunk/complete, both directions | ✅ [Done](progress/PHASE-08-COMPLETE.md) — engine tested; drag-drop and picker need a human |
-| 8.5 | Screen mirroring | Live phone screen on the Mac, clickable | ✅ [Done](progress/PHASE-08b-SCREEN-MIRROR.md) — input needs the accessibility grant |
+| 8.5 | Screen mirroring | Live phone screen on the Mac, clickable | ⚠️ Video works; **remote touch is broken** — see [session log](progress/SESSION-2026-08-09.md) |
 | 9 | Polish | Reconnect, battery whitelist prompt, launch-at-login | ⬜ Not started |
 
 **Vertical slice = phases 1–3.** Get a notification from the phone onto the Mac screen over
 LAN before touching anything else.
+
+## Where to pick up
+Latest session log: `docs/progress/SESSION-2026-08-09.md`. It carries the one open bug
+(remote touch does nothing) with the diagnosis so far and the next command to run.
 
 ## Session hand-off
 New sessions: read `INSTRUCTIONS.md` first. Completed phases each have a record in
