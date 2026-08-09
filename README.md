@@ -5,9 +5,9 @@ and file transfer. No cloud, no relay — if the devices aren't on the same wifi
 shows "disconnected" and keeps retrying.
 
 ## Status
-**Phase 1 of 9 complete** (protocol contract) — see
-[docs/progress/PHASE-01-COMPLETE.md](docs/progress/PHASE-01-COMPLETE.md).
-Next up: Phase 2, Android notification capture.
+**Phase 2 of 9 complete** (Android notification capture, verified end-to-end on device) —
+see [docs/progress/PHASE-02-COMPLETE.md](docs/progress/PHASE-02-COMPLETE.md).
+Next up: Phase 3, the Mac receiver — which completes the vertical slice.
 
 Working on this in a new session? **Read [INSTRUCTIONS.md](INSTRUCTIONS.md) first** — it
 explains how to determine current progress and the rules every phase follows.

@@ -6,7 +6,7 @@ import { DEFAULT_PORT } from '@phonelink/shared';
  *
  * Set this to your Mac's LAN IP (System Settings → Network), e.g. '192.168.1.42'.
  */
-export const MAC_HOST = '192.168.1.42';
+export const MAC_HOST = '192.168.1.9';
 export const MAC_PORT = DEFAULT_PORT;
 
 export const MAC_WS_URL = `ws://${MAC_HOST}:${MAC_PORT}`;
