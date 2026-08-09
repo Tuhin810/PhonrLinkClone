@@ -148,31 +148,48 @@ export function useNotificationMirror() {
     };
   }, [manualHost]);
 
-  // One socket per target; changing the address or credentials tears the old one down.
+  // The Mac re-sends pair_confirm on every connection, so `paired` gets a fresh object each
+  // time. Depending on the object here would tear the socket down and redial on every
+  // handshake — an endless connect/disconnect loop. Depend on stable primitives instead, and
+  // read the current values through a ref.
+  const pairedPubKey = paired?.pubKey ?? null;
+  const identityPubKey = identity?.publicKey ?? null;
+  const latest = useRef({ identity, paired, pendingToken, target });
+  latest.current = { identity, paired, pendingToken, target };
+
   useEffect(() => {
     // Without an identity there is nothing to authenticate with, and without either a paired
     // Mac or a fresh token the Mac would reject us anyway — so do not even dial.
-    if (!target || !identity || (!paired && !pendingToken)) {
+    const current = latest.current;
+    if (!target || !current.identity || (!pairedPubKey && !pendingToken)) {
       setConnection('disconnected');
       return;
     }
     const client = new LinkClient({
       url: macWsUrl(target),
-      identity,
+      identity: current.identity,
       deviceName: androidDeviceName(),
-      macPubKey: paired?.pubKey ?? null,
+      macPubKey: pairedPubKey,
       pairingToken: pendingToken,
       onStateChange: setConnection,
       onPaired: (macPubKey, macName) => {
-        const record: PairedMac = {
-          host: target,
-          port: MAC_PORT,
-          deviceName: macName,
-          pubKey: macPubKey,
-        };
-        setPaired(record);
-        setPendingToken(null);
-        setPairedMac(record).catch(() => undefined);
+        // Re-pairing with the same Mac is the normal case on every reconnect. Only touch
+        // state when something actually changed, so this cannot feed back into the effect.
+        setPaired(previous =>
+          previous && previous.pubKey === macPubKey && previous.host === target
+            ? previous
+            : (() => {
+                const record: PairedMac = {
+                  host: target,
+                  port: MAC_PORT,
+                  deviceName: macName,
+                  pubKey: macPubKey,
+                };
+                setPairedMac(record).catch(() => undefined);
+                return record;
+              })(),
+        );
+        setPendingToken(current => (current === null ? current : null));
       },
     });
     clientRef.current = client;
@@ -181,7 +198,7 @@ export function useNotificationMirror() {
       client.stop();
       clientRef.current = null;
     };
-  }, [target, identity, paired, pendingToken]);
+  }, [target, identityPubKey, pairedPubKey, pendingToken]);
 
   const openSettings = useCallback(async () => {
     await NotificationBridge.openNotificationAccessSettings();

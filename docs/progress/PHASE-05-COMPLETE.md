@@ -76,6 +76,16 @@ connects, confirming the previously-open port is closed.
   from Mac", point at the code — the phone should pair and connect, and the Mac popup should
   then show the phone's name.
 
+## Bug found on device and fixed
+- **Rapid connect/disconnect loop immediately after scanning the QR.** The Mac re-sends
+  `pair_confirm` on every connection, so the phone's `onPaired` handler built a fresh `PairedMac`
+  object each time. That object was a dependency of the socket effect, so referential inequality
+  tore the socket down and redialled — which re-paired, which rebuilt the object, endlessly.
+  Fixed by depending on stable primitives (`paired?.pubKey`, `identity?.publicKey`) instead of
+  the objects, reading current values through a ref, and making the state updaters no-ops when
+  nothing actually changed. Verified: 80s on a single connection with a notification mirrored
+  successfully mid-way.
+
 ## Known gaps carried forward
 - **No forward secrecy** — a compromised long-term key decrypts recorded past traffic. Session
   keys would fix it; out of scope for a personal LAN tool.
