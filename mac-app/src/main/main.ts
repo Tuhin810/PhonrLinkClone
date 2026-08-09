@@ -1,6 +1,14 @@
 import path from 'node:path';
 import { BrowserWindow, Tray, app, ipcMain, screen } from 'electron';
-import { DEFAULT_PORT, Envelope, assertNever } from '@phonelink/shared';
+import os from 'node:os';
+import QRCode from 'qrcode';
+import {
+  DEFAULT_PORT,
+  Envelope,
+  PAIRING_PAYLOAD_VERSION,
+  type PairingPayload,
+  assertNever,
+} from '@phonelink/shared';
 import { Advertiser } from './advertiser';
 import { LinkServer, type ConnectionState } from './linkServer';
 import { NotificationPresenter } from './notifications';
@@ -72,15 +80,48 @@ function togglePopup(): void {
   positionPopup(popup, tray.getBounds());
   popup.show();
   popup.focus();
-  pushState();
+  void pushState();
 }
 
-function pushState(): void {
+/**
+ * QR payload for the phone to scan, so the address never has to be typed. Regenerated on each
+ * push because the LAN address changes with the network.
+ *
+ * Cached by address: encoding is cheap but this runs on every notification.
+ */
+let qrCache: { host: string; dataUrl: string } | null = null;
+
+async function pairingQrDataUrl(host: string): Promise<string | null> {
+  if (qrCache?.host === host) return qrCache.dataUrl;
+  const payload: PairingPayload = {
+    app: 'phonelink',
+    v: PAIRING_PAYLOAD_VERSION,
+    host,
+    port: DEFAULT_PORT,
+    device: os.hostname().replace(/\.local$/, ''),
+  };
+  try {
+    const dataUrl = await QRCode.toDataURL(JSON.stringify(payload), {
+      margin: 1,
+      width: 220,
+    });
+    qrCache = { host, dataUrl };
+    return dataUrl;
+  } catch {
+    // A failed QR render must not take the popup down; the address text is still shown.
+    return null;
+  }
+}
+
+async function pushState(): Promise<void> {
+  const addresses = localAddresses();
+  const primary = addresses[0] ?? null;
   popup?.webContents.send('state', {
     connection,
     port: DEFAULT_PORT,
-    addresses: localAddresses(),
+    addresses,
     feed,
+    qr: primary ? await pairingQrDataUrl(primary) : null,
   });
 }
 
@@ -99,13 +140,13 @@ function handleEnvelope(envelope: Envelope): void {
       presenter.show(envelope);
       const { type: _type, ...item } = envelope;
       feed = [item, ...feed].slice(0, FEED_LIMIT);
-      pushState();
+      void pushState();
       return;
     }
     case 'notification_dismiss':
       presenter.dismiss(envelope.id);
       feed = feed.filter(item => item.id !== envelope.id);
-      pushState();
+      void pushState();
       return;
 
     // Declared in the protocol but owned by later phases. Ignored, not an error.
@@ -143,15 +184,17 @@ app.whenReady().then(() => {
     updateTrayTitle();
     // A phone that walked away leaves no stale banners behind.
     if (next === 'waiting') presenter.dismissAll();
-    pushState();
+    void pushState();
   });
   server.on('envelope', handleEnvelope);
   server.start();
   advertiser.start();
 
-  ipcMain.handle('request-state', () => {
-    pushState();
-  });
+  ipcMain.handle('request-state', () => pushState());
+
+  // `npm run dev` opens the popup immediately; otherwise it only appears on a tray click,
+  // which makes the UI awkward to iterate on.
+  if (process.argv.includes('--dev')) togglePopup();
   ipcMain.handle('quit', () => app.quit());
 });
 

@@ -21,6 +21,48 @@ export const MISSED_PINGS_BEFORE_DISCONNECT = 2;
 
 export type DeviceKind = 'phone' | 'mac';
 
+/**
+ * Payload encoded into the pairing QR code the Mac shows and the phone scans.
+ *
+ * Phase 4.5 carries only the address, so scanning replaces typing an IP by hand. Phase 5 adds
+ * `pubKey` and `pairingToken` here — keep the shape additive so an older phone scanning a
+ * newer code fails on `v` rather than on a missing field.
+ */
+export interface PairingPayload {
+  /** Discriminator so we never act on some other app's QR code. */
+  app: 'phonelink';
+  /** Payload version, independent of PROTOCOL_VERSION. */
+  v: number;
+  host: string;
+  port: number;
+  device: string;
+}
+
+export const PAIRING_PAYLOAD_VERSION = 1;
+
+/** Parses a scanned QR string. Returns null for anything that is not our payload. */
+export function parsePairingPayload(raw: string): PairingPayload | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== 'object' || parsed === null) return null;
+  const o = parsed as Record<string, unknown>;
+  if (o['app'] !== 'phonelink') return null;
+  if (typeof o['v'] !== 'number' || o['v'] > PAIRING_PAYLOAD_VERSION) return null;
+  if (typeof o['host'] !== 'string' || !o['host']) return null;
+  if (typeof o['port'] !== 'number' || !Number.isInteger(o['port'])) return null;
+  return {
+    app: 'phonelink',
+    v: o['v'],
+    host: o['host'],
+    port: o['port'],
+    device: typeof o['device'] === 'string' ? o['device'] : 'Mac',
+  };
+}
+
 export interface NotificationMessage {
   type: 'notification';
   /** Stable per-notification id, reused by notification_dismiss. */

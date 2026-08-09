@@ -44,6 +44,17 @@ li img { width: 28px; height: 28px; border-radius: 6px; flex: none; }
 .text { color: var(--muted); }
 .empty { color: var(--muted); text-align: center; padding: 40px 30px; }
 
+.pairing {
+  display: none;
+  padding: 14px;
+  text-align: center;
+  border-bottom: 1px solid var(--line);
+}
+.pairing.show { display: block; }
+.pair-hint { margin: 0 0 10px; color: var(--muted); font-size: 11px; }
+/* The QR must stay white-on-black-ink to scan; it does not follow the theme. */
+#qr { width: 180px; height: 180px; background: #fff; border-radius: 6px; padding: 6px; }
+
 footer { padding: 8px 14px; border-top: 1px solid var(--line); text-align: right; }
 button {
   font: inherit;

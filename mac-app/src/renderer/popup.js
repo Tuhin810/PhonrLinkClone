@@ -2,6 +2,8 @@ const dot = document.getElementById('dot');
 const status = document.getElementById('status');
 const address = document.getElementById('address');
 const feed = document.getElementById('feed');
+const pairing = document.getElementById('pairing');
+const qr = document.getElementById('qr');
 const empty = document.getElementById('empty');
 
 function render(state) {
@@ -11,6 +13,14 @@ function render(state) {
   address.textContent = state.addresses.length
     ? `${state.addresses.join(', ')} : ${state.port}`
     : `port ${state.port} — no LAN address`;
+
+  // The QR is setup help: once the phone is connected it is only clutter.
+  if (!connected && state.qr) {
+    qr.src = state.qr;
+    pairing.classList.add('show');
+  } else {
+    pairing.classList.remove('show');
+  }
 
   feed.replaceChildren();
   empty.style.display = state.feed.length ? 'none' : 'block';

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import type { NotificationMessage } from '@phonelink/shared';
 import { MAC_PORT } from './src/config';
+import { ScanQrScreen } from './src/discovery/ScanQrScreen';
 import { ConnectionState } from './src/net/linkClient';
 import { useNotificationMirror } from './src/useNotificationMirror';
 
@@ -58,6 +59,7 @@ function App(): React.JSX.Element {
   const isDark = useColorScheme() === 'dark';
   const { state, openSettings, saveManualHost } = useNotificationMirror();
   const [showManual, setShowManual] = React.useState(false);
+  const [scanning, setScanning] = React.useState(false);
   const [draftHost, setDraftHost] = React.useState('');
 
   React.useEffect(() => {
@@ -74,6 +76,18 @@ function App(): React.JSX.Element {
             ? 'manual address'
             : state.deviceName ?? 'discovered'
         }`;
+
+  if (scanning) {
+    return (
+      <ScanQrScreen
+        onScanned={host => {
+          saveManualHost(host);
+          setScanning(false);
+        }}
+        onCancel={() => setScanning(false)}
+      />
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -94,19 +108,24 @@ function App(): React.JSX.Element {
               {line}
             </Text>
           ))}
-        <TouchableOpacity onPress={() => setShowManual(current => !current)}>
-          <Text style={styles.link}>
-            {showManual ? 'Hide manual address' : 'Enter address manually'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity onPress={() => setScanning(true)}>
+            <Text style={styles.link}>Scan QR from Mac</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowManual(current => !current)}>
+            <Text style={styles.link}>
+              {showManual ? 'Hide manual address' : 'Enter address manually'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {state.targetSource === 'none' && state.discoveryLikelyBlocked && !showManual && (
         <TouchableOpacity style={styles.banner} onPress={() => setShowManual(true)}>
           <Text style={styles.bannerTitle}>Discovery isn't finding your Mac</Text>
           <Text style={styles.bannerBody}>
-            Guest and public wifi commonly block the discovery protocol. Tap to enter your
-            Mac's IP address instead — it's shown in the Mac app's menu bar popup.
+            Guest and public wifi commonly block the discovery protocol. Scan the QR code in
+            the Mac app's menu bar popup, or tap here to type the address instead.
           </Text>
         </TouchableOpacity>
       )}
@@ -178,6 +197,7 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 15, color: '#343a40' },
   target: { fontSize: 12, color: '#868e96', marginTop: 2 },
   link: { fontSize: 12, color: '#1c7ed6', marginTop: 6 },
+  headerActions: { flexDirection: 'row', gap: 18 },
   diagnostic: { fontSize: 10, color: '#adb5bd', fontFamily: 'monospace' },
   manualBox: {
     marginHorizontal: 16,

@@ -9,6 +9,8 @@
     <!-- The connectedDevice FGS type additionally requires at least one transport permission.
          Multicast is the one we genuinely need: mDNS discovery in Phase 4 depends on it. -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <!-- Scanning the Mac's pairing QR code. Requested at runtime, only while scanning. -->
+    <uses-permission android:name="android.permission.CAMERA" />
     <!-- Android 13+: needed to post our own persistent service notification. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
