@@ -1,0 +1,80 @@
+:root {
+  --bg: #101014;
+  --frame: #26262c;
+  --fg: #f5f5f7;
+  --muted: #8e8e96;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  color: var(--fg);
+  font: 12px -apple-system, BlinkMacSystemFont, sans-serif;
+  /* The window is the phone; nothing should ever scroll. */
+  overflow: hidden;
+  user-select: none;
+}
+
+.phone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  padding: 10px;
+  gap: 8px;
+}
+
+.screen {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  background: #000;
+  border: 2px solid var(--frame);
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+canvas {
+  width: 100%;
+  height: 100%;
+  /* contain, so a tap maps to the right place regardless of window shape */
+  object-fit: contain;
+  display: block;
+  cursor: pointer;
+}
+
+.placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 20px;
+  color: var(--muted);
+}
+.placeholder.hidden { display: none; }
+.placeholder p { margin: 0 0 6px; }
+.hint { font-size: 11px; opacity: 0.7; }
+
+.nav { display: flex; gap: 26px; }
+.nav button {
+  width: 36px;
+  height: 26px;
+  font-size: 15px;
+  color: var(--fg);
+  background: var(--frame);
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.nav button:hover { background: #35353d; }
+
+.status { margin: 0; color: var(--muted); min-height: 14px; }

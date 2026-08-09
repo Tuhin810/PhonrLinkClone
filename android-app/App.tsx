@@ -66,6 +66,7 @@ function App(): React.JSX.Element {
     setClipboardEnabled,
     sendCurrentClipboard,
     sendFile,
+    openAccessibilitySettings,
   } = useNotificationMirror();
   const [showManual, setShowManual] = React.useState(false);
   const [scanning, setScanning] = React.useState(false);
@@ -183,6 +184,27 @@ function App(): React.JSX.Element {
             PhoneLink Clone, then return here.
           </Text>
         </TouchableOpacity>
+      )}
+
+      {state.mirroring && (
+        <View style={styles.counters}>
+          <Text style={styles.counterText}>
+            Sharing your screen with your Mac
+            {state.inputAvailable ? '' : ' (view only)'}
+          </Text>
+        </View>
+      )}
+      {!state.inputAvailable && (
+        <TouchableOpacity style={styles.counters} onPress={() => openAccessibilitySettings()}>
+          <Text style={styles.link}>
+            Enable remote control (Accessibility settings)
+          </Text>
+        </TouchableOpacity>
+      )}
+      {state.mirrorReason && (
+        <View style={styles.counters}>
+          <Text style={styles.counterText}>{state.mirrorReason}</Text>
+        </View>
       )}
 
       <View style={styles.counters}>

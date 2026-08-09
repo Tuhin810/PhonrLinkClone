@@ -5,9 +5,10 @@
 
 /**
  * Bumped on any breaking change. Exchanged during pairing so mismatches fail loudly.
- * v2 added the encrypted channel and `pairingProof`; v3 added `call_action`.
+ * v2 added the encrypted channel and `pairingProof`; v3 added `call_action`; v4 added screen
+ * mirroring and remote input.
  */
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 
 /** Default LAN port the Mac listens on. */
 export const DEFAULT_PORT = 47711;
@@ -169,6 +170,50 @@ export interface PairConfirmMessage {
   protocolVersion: number;
 }
 
+/** Mac -> phone: start or stop screen capture. */
+export interface ScreenControlMessage {
+  type: 'screen_control';
+  action: 'start' | 'stop';
+}
+
+/** Phone -> Mac: one captured frame, JPEG, base64. */
+export interface ScreenFrameMessage {
+  type: 'screen_frame';
+  data: string;
+  width: number;
+  height: number;
+  timestamp: number;
+}
+
+/** Phone -> Mac: capture state, including why it is not running. */
+export interface ScreenStateMessage {
+  type: 'screen_state';
+  streaming: boolean;
+  /** Present when streaming stopped or could not start. */
+  reason?: string;
+  /** Whether the accessibility service that performs input is enabled. */
+  inputAvailable: boolean;
+}
+
+/**
+ * Mac -> phone: remote input.
+ *
+ * Coordinates are normalised 0..1 against the captured frame, so the two devices never have to
+ * agree on resolution or scaling.
+ */
+export type InputMessage =
+  | { type: 'input_tap'; x: number; y: number }
+  | {
+      type: 'input_swipe';
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+      durationMs: number;
+    }
+  | { type: 'input_key'; key: 'back' | 'home' | 'recents' | 'notifications' }
+  | { type: 'input_text'; text: string };
+
 export interface PingMessage {
   type: 'ping';
 }
@@ -189,6 +234,10 @@ export type Envelope =
   | FileCompleteMessage
   | PairRequestMessage
   | PairConfirmMessage
+  | ScreenControlMessage
+  | ScreenFrameMessage
+  | ScreenStateMessage
+  | InputMessage
   | PingMessage
   | PongMessage;
 

@@ -9,9 +9,10 @@ exports.parsePairingPayload = parsePairingPayload;
 exports.assertNever = assertNever;
 /**
  * Bumped on any breaking change. Exchanged during pairing so mismatches fail loudly.
- * v2 added the encrypted channel and `pairingProof`; v3 added `call_action`.
+ * v2 added the encrypted channel and `pairingProof`; v3 added `call_action`; v4 added screen
+ * mirroring and remote input.
  */
-exports.PROTOCOL_VERSION = 3;
+exports.PROTOCOL_VERSION = 4;
 /** Default LAN port the Mac listens on. */
 exports.DEFAULT_PORT = 47711;
 /** mDNS service type advertised by the Mac and browsed by the phone. */

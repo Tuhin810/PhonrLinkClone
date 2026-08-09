@@ -41,6 +41,13 @@ function intAtLeast(o: Rec, k: string, min: number): number {
   return v;
 }
 
+/** Normalised screen coordinate; anything outside 0..1 is a bug on the sending side. */
+function unitInterval(o: Rec, k: string): number {
+  const v = num(o, k);
+  if (v < 0 || v > 1) throw new ProtocolError(`"${k}" must be between 0 and 1`);
+  return v;
+}
+
 /** Validates a parsed JSON value as an Envelope. Throws ProtocolError on any mismatch. */
 export function validateEnvelope(value: unknown): Envelope {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -139,6 +146,61 @@ export function validateEnvelope(value: unknown): Envelope {
         pubKey: str(o, 'pubKey'),
         protocolVersion: intAtLeast(o, 'protocolVersion', 1),
       };
+
+    case 'screen_control': {
+      const action = str(o, 'action');
+      if (action !== 'start' && action !== 'stop') {
+        throw new ProtocolError('"action" must be "start" or "stop"');
+      }
+      return { type, action };
+    }
+
+    case 'screen_frame':
+      return {
+        type,
+        data: str(o, 'data'),
+        width: intAtLeast(o, 'width', 1),
+        height: intAtLeast(o, 'height', 1),
+        timestamp: num(o, 'timestamp'),
+      };
+
+    case 'screen_state': {
+      const streaming = o['streaming'];
+      const inputAvailable = o['inputAvailable'];
+      if (typeof streaming !== 'boolean') {
+        throw new ProtocolError('"streaming" must be a boolean');
+      }
+      return {
+        type,
+        streaming,
+        reason: optStr(o, 'reason'),
+        inputAvailable: typeof inputAvailable === 'boolean' ? inputAvailable : false,
+      };
+    }
+
+    case 'input_tap':
+      return { type, x: unitInterval(o, 'x'), y: unitInterval(o, 'y') };
+
+    case 'input_swipe':
+      return {
+        type,
+        x1: unitInterval(o, 'x1'),
+        y1: unitInterval(o, 'y1'),
+        x2: unitInterval(o, 'x2'),
+        y2: unitInterval(o, 'y2'),
+        durationMs: intAtLeast(o, 'durationMs', 1),
+      };
+
+    case 'input_key': {
+      const key = str(o, 'key');
+      if (key !== 'back' && key !== 'home' && key !== 'recents' && key !== 'notifications') {
+        throw new ProtocolError(`unknown key "${key}"`);
+      }
+      return { type, key };
+    }
+
+    case 'input_text':
+      return { type, text: str(o, 'text') };
 
     case 'ping':
     case 'pong':

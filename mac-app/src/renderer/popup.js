@@ -108,6 +108,9 @@ document
 document
   .getElementById('call-silence')
   .addEventListener('click', () => window.phonelink.callAction('silence'));
+document
+  .getElementById('mirror')
+  .addEventListener('click', () => window.phonelink.openMirror());
 clipboardButton.addEventListener('click', () => window.phonelink.toggleClipboard());
 // The whole popup accepts drops; without preventDefault the page would navigate to the file.
 for (const eventName of ['dragenter', 'dragover']) {

@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { BrowserWindow, Tray, app, ipcMain, screen } from 'electron';
 import os from 'node:os';
@@ -47,6 +48,10 @@ let activeCall: { callerName: string | null; callerNumber: string } | null = nul
 const transfers = new FileTransfers();
 let transferProgress: TransferProgress | null = null;
 let transferMessage: string | null = null;
+let mirrorWindow: BrowserWindow | null = null;
+const dumpIndex = process.argv.indexOf('--dump-frame');
+let dumpFramePath: string | null =
+  dumpIndex >= 0 ? (process.argv[dumpIndex + 1] ?? null) : null;
 let feed: FeedItem[] = [];
 let connection: ConnectionState = 'waiting';
 
@@ -73,6 +78,40 @@ function createPopup(): BrowserWindow {
   // Clicking elsewhere dismisses the popup, the way menu bar apps behave.
   window.on('blur', () => window.hide());
   return window;
+}
+
+/**
+ * The phone-shaped mirror window. Kept separate from the tray popup: the popup hides on blur,
+ * which would make a window you are trying to click through unusable.
+ */
+function openMirror(): void {
+  if (mirrorWindow && !mirrorWindow.isDestroyed()) {
+    mirrorWindow.show();
+    mirrorWindow.focus();
+    server.send({ type: 'screen_control', action: 'start' });
+    return;
+  }
+
+  mirrorWindow = new BrowserWindow({
+    width: 380,
+    height: 780,
+    title: 'Phone',
+    backgroundColor: '#101014',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  mirrorWindow.loadFile(path.join(__dirname, '../renderer/mirror.html'));
+  mirrorWindow.on('closed', () => {
+    mirrorWindow = null;
+    // Closing the window must stop the capture; leaving the phone sharing would be alarming.
+    server.send({ type: 'screen_control', action: 'stop' });
+  });
+  mirrorWindow.webContents.once('did-finish-load', () => {
+    server.send({ type: 'screen_control', action: 'start' });
+  });
 }
 
 function positionPopup(window: BrowserWindow, trayBounds: Electron.Rectangle): void {
@@ -175,8 +214,34 @@ function handleEnvelope(envelope: Envelope): void {
       void pushState();
       return;
 
+    case 'screen_frame':
+      // Frames go straight to the mirror window; they never touch the popup's state.
+      mirrorWindow?.webContents.send('screen-frame', envelope);
+      // Dev helper: `--dump-frame <path>` writes the first frame out, so the capture pipeline
+      // can be checked without eyeballing the window.
+      if (dumpFramePath) {
+        const target = dumpFramePath;
+        dumpFramePath = null;
+        fs.writeFile(target, Buffer.from(envelope.data, 'base64'), () =>
+          console.log(`[mirror] wrote ${envelope.width}x${envelope.height} frame to ${target}`),
+        );
+      }
+      return;
+
+    case 'screen_state':
+      mirrorWindow?.webContents.send('screen-state', envelope);
+      if (!envelope.streaming && envelope.reason) {
+        console.log(`[mirror] ${envelope.reason}`);
+      }
+      return;
+
     // Mac -> phone only; receiving one back would be the phone misbehaving.
     case 'call_action':
+    case 'screen_control':
+    case 'input_tap':
+    case 'input_swipe':
+    case 'input_key':
+    case 'input_text':
       return;
 
     case 'clipboard_update':
@@ -300,6 +365,17 @@ app.whenReady().then(() => {
   // which makes the UI awkward to iterate on.
   if (process.argv.includes('--dev')) togglePopup();
 
+  // Dev helper: `electron . --mirror` opens the phone window as soon as one connects.
+  if (process.argv.includes('--mirror')) {
+    const openWhenReady = () => {
+      if (server.getState() !== 'connected') return;
+      server.off('state', openWhenReady);
+      openMirror();
+    };
+    server.on('state', openWhenReady);
+    openWhenReady();
+  }
+
   // Dev helper: `electron . --send-file <path>` sends a file as soon as a phone connects,
   // so the transfer path can be exercised without performing a drag gesture by hand.
   const sendFileIndex = process.argv.indexOf('--send-file');
@@ -318,6 +394,16 @@ app.whenReady().then(() => {
     trySend();
   }
   ipcMain.handle('quit', () => app.quit());
+
+  ipcMain.handle('open-mirror', () => openMirror());
+
+  ipcMain.handle('input', (_event, envelope: unknown) => {
+    // Validated on the phone as well; this is just a shape check before sending.
+    if (typeof envelope !== 'object' || envelope === null) return;
+    const type = (envelope as { type?: unknown }).type;
+    if (typeof type !== 'string' || !type.startsWith('input_')) return;
+    server.send(envelope as Envelope);
+  });
 
   ipcMain.handle('send-files', async (_event, filePaths: unknown) => {
     if (!Array.isArray(filePaths)) return;

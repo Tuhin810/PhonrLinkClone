@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'self'; script-src 'self'; img-src data:;"
+    />
+    <title>Phone</title>
+    <link rel="stylesheet" href="mirror.css" />
+  </head>
+  <body>
+    <div class="phone">
+      <div class="screen">
+        <canvas id="screen"></canvas>
+        <div id="placeholder" class="placeholder">
+          <p id="placeholder-text">Starting screen sharing…</p>
+          <p class="hint">Approve the prompt on your phone.</p>
+        </div>
+      </div>
+      <div class="nav">
+        <button id="back" title="Back">‹</button>
+        <button id="home" title="Home">○</button>
+        <button id="recents" title="Recents">□</button>
+      </div>
+      <p id="status" class="status"></p>
+    </div>
+    <script src="mirror.js"></script>
+  </body>
+</html>

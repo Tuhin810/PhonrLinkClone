@@ -6,6 +6,8 @@
     <!-- targetSdk 34+ requires a typed foreground service. "connectedDevice" fits a LAN link
          to a paired Mac and avoids the daily runtime cap that "dataSync" carries. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <!-- Screen mirroring. MediaProjection requires a typed foreground service from Android 10. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <!-- The connectedDevice FGS type additionally requires at least one transport permission.
          Multicast is the one we genuinely need: mDNS discovery in Phase 4 depends on it. -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
@@ -73,6 +75,24 @@
           <action android:name="android.intent.action.PHONE_STATE" />
         </intent-filter>
       </receiver>
+
+      <service
+        android:name=".ScreenCaptureService"
+        android:foregroundServiceType="mediaProjection"
+        android:exported="false" />
+
+      <!-- Input injection for remote control. Granted by hand in Accessibility settings. -->
+      <service
+        android:name=".RemoteInputService"
+        android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+        android:exported="false">
+        <intent-filter>
+          <action android:name="android.accessibilityservice.AccessibilityService" />
+        </intent-filter>
+        <meta-data
+          android:name="android.accessibilityservice"
+          android:resource="@xml/remote_input_service" />
+      </service>
 
       <service
         android:name=".LinkForegroundService"

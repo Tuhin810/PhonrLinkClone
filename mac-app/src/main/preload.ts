@@ -22,4 +22,12 @@ contextBridge.exposeInMainWorld('phonelink', {
       files.map(file => webUtils.getPathForFile(file)),
     ),
   quit: () => ipcRenderer.invoke('quit'),
+  openMirror: () => ipcRenderer.invoke('open-mirror'),
+  input: (envelope: unknown) => ipcRenderer.invoke('input', envelope),
+  onFrame: (handler: (frame: unknown) => void) => {
+    ipcRenderer.on('screen-frame', (_event, frame) => handler(frame));
+  },
+  onScreenState: (handler: (state: unknown) => void) => {
+    ipcRenderer.on('screen-state', (_event, state) => handler(state));
+  },
 });

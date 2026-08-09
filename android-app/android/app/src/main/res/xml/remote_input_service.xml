@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Declares the minimum an input-only service needs: no event types, no window content, and no
+  ability to retrieve what is on screen. It exists solely to dispatch gestures.
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeViewClicked"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:canPerformGestures="true"
+    android:description="@string/remote_input_description"
+    android:notificationTimeout="100" />

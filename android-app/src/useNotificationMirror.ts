@@ -8,6 +8,7 @@ import { MacDiscovery, type DiscoveredMac } from './discovery/discovery';
 import { getManualHost, setManualHost } from './discovery/settings';
 import { useClipboardSync } from './clipboard/useClipboardSync';
 import { useFileTransfer, type TransferProgress } from './files/useFileTransfer';
+import { useScreenMirror } from './mirror/useScreenMirror';
 import { CallState } from './native/callState';
 import { NotificationBridge } from './native/notificationBridge';
 import { ConnectionState, LinkClient } from './net/linkClient';
@@ -40,6 +41,9 @@ export interface MirrorState {
   callPermission: boolean;
   /** Why the last remote decline/silence failed, if it did. */
   callActionError: string | null;
+  mirroring: boolean;
+  inputAvailable: boolean;
+  mirrorReason: string | null;
   transfer: TransferProgress | null;
   transferError: string | null;
   clipboardEnabled: boolean;
@@ -224,6 +228,15 @@ export function useNotificationMirror() {
       pairingToken: pendingToken,
       onStateChange: setConnection,
       onEnvelope: envelope => {
+        if (envelope.type === 'screen_control') {
+          if (envelope.action === 'start') void mirrorRef.current.startMirror();
+          else mirrorRef.current.stopMirror();
+          return;
+        }
+        if (envelope.type.startsWith('input_')) {
+          void mirrorRef.current.handleInput(envelope);
+          return;
+        }
         if (envelope.type === 'call_action') {
           // Failures are reported rather than swallowed: a decline that silently does nothing
           // is worse than one that says it could not.
@@ -294,6 +307,19 @@ export function useNotificationMirror() {
   const fileEnvelopeRef = useRef(handleFileEnvelope);
   fileEnvelopeRef.current = handleFileEnvelope;
 
+  const {
+    streaming: mirroring,
+    inputAvailable,
+    reason: mirrorReason,
+    start: startMirror,
+    stop: stopMirror,
+    handleInput,
+    openAccessibilitySettings,
+  } = useScreenMirror({ send: sendViaClient });
+
+  const mirrorRef = useRef({ startMirror, stopMirror, handleInput });
+  mirrorRef.current = { startMirror, stopMirror, handleInput };
+
   const { applyRemote, sendCurrentClipboard } = useClipboardSync({
     enabled: clipboardEnabled,
     connected: connection === 'connected',
@@ -342,6 +368,9 @@ export function useNotificationMirror() {
       paired,
       callPermission,
       callActionError,
+      mirroring,
+      inputAvailable,
+      mirrorReason,
       transfer,
       transferError,
       clipboardEnabled,
@@ -357,5 +386,6 @@ export function useNotificationMirror() {
     setClipboardEnabled,
     sendCurrentClipboard,
     sendFile,
+    openAccessibilitySettings,
   };
 }
