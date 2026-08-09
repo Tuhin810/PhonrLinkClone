@@ -9,6 +9,8 @@ const empty = document.getElementById('empty');
 const toggle = document.getElementById('toggle');
 const rejection = document.getElementById('rejection');
 const clipboardButton = document.getElementById('clipboard');
+const call = document.getElementById('call');
+const callCaller = document.getElementById('call-caller');
 
 const STATUS_TEXT = {
   connected: 'Phone connected',
@@ -26,6 +28,16 @@ function render(state) {
       : (STATUS_TEXT[state.connection] ?? 'Waiting for phone…');
   toggle.textContent = paused ? 'Allow connections' : 'Disconnect';
   clipboardButton.textContent = `Clipboard: ${state.clipboardEnabled ? 'on' : 'off'}`;
+  if (state.activeCall) {
+    const { callerName, callerNumber } = state.activeCall;
+    callCaller.textContent = callerName
+      ? `${callerName} · ${callerNumber || 'no number'}`
+      : callerNumber || 'Unknown caller';
+    call.classList.add('show');
+  } else {
+    call.classList.remove('show');
+  }
+
   // A rejected pairing attempt is worth showing: silence looks like a bug.
   rejection.textContent = state.lastRejection ?? '';
   rejection.classList.toggle('show', Boolean(state.lastRejection));

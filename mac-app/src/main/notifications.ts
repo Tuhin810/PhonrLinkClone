@@ -1,5 +1,5 @@
 import { Notification, nativeImage } from 'electron';
-import type { NotificationMessage } from '@phonelink/shared';
+import type { CallIncomingMessage, NotificationMessage } from '@phonelink/shared';
 
 /**
  * Posts mirrored notifications to macOS Notification Center and keeps handles around so a
@@ -11,6 +11,8 @@ import type { NotificationMessage } from '@phonelink/shared';
  */
 export class NotificationPresenter {
   private readonly active = new Map<string, Notification>();
+  /** At most one call banner at a time. */
+  private call: Notification | null = null;
 
   /** Bounded so a burst of notifications cannot grow this map without limit. */
   private static readonly MAX_TRACKED = 50;
@@ -41,6 +43,36 @@ export class NotificationPresenter {
     this.trim();
   }
 
+  /**
+   * Incoming call heads-up. Deliberately says where to answer: the app cannot answer or route
+   * audio, and a notification that looks actionable but is not would be worse than none.
+   * See docs/CONSTRAINTS.md #1.
+   */
+  showCall(message: CallIncomingMessage): void {
+    if (!Notification.isSupported()) return;
+    this.dismissCall();
+
+    const caller = message.callerName ?? message.callerNumber ?? 'Unknown caller';
+    const notification = new Notification({
+      title: `Incoming call — ${caller}`,
+      body: message.callerName ? `${message.callerNumber}\nAnswer on your phone` : 'Answer on your phone',
+      urgency: 'critical',
+      timeoutType: 'never',
+      silent: false,
+    });
+    notification.on('close', () => {
+      if (this.call === notification) this.call = null;
+    });
+    notification.show();
+    this.call = notification;
+  }
+
+  /** Clears the call banner when the call ends, is answered, or the link drops. */
+  dismissCall(): void {
+    this.call?.close();
+    this.call = null;
+  }
+
   dismiss(id: string): void {
     const notification = this.active.get(id);
     if (!notification) return;
@@ -51,6 +83,7 @@ export class NotificationPresenter {
   dismissAll(): void {
     for (const notification of this.active.values()) notification.close();
     this.active.clear();
+    this.dismissCall();
   }
 
   private trim(): void {

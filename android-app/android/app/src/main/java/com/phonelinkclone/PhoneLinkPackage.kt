@@ -14,6 +14,7 @@ class PhoneLinkPackage : ReactPackage {
       NotificationBridgeModule(reactContext),
       SecureStoreModule(reactContext),
       ClipboardModule(reactContext),
+      CallStateModule(reactContext),
     )
 
   override fun createViewManagers(

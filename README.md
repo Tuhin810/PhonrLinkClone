@@ -15,7 +15,10 @@ the LAN port no longer accepts unpaired devices. See
 **Phase 6 of 9 complete**: clipboard sync both directions, plus a real test suite
 (`npm test` in `shared/` and `mac-app/` — 27 tests). See
 [docs/progress/PHASE-06-COMPLETE.md](docs/progress/PHASE-06-COMPLETE.md).
-Next up: Phase 7, incoming call alerts.
+**Phase 7 of 9 complete**: incoming calls raise a banner on the Mac (detection only — you
+still answer on the phone). See
+[docs/progress/PHASE-07-COMPLETE.md](docs/progress/PHASE-07-COMPLETE.md).
+Next up: Phase 8, file transfer.
 
 ```bash
 cd mac-app && npm start      # menu bar receiver

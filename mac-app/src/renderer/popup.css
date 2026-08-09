@@ -7,6 +7,7 @@
   --wait: #8e8e93;
   --paused: #d97706;
   --warn: #c2410c;
+  --call-bg: #dcfce7;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -15,6 +16,7 @@
     --fg: #f5f5f7;
     --muted: #98989d;
     --line: #333336;
+    --call-bg: #14532d;
   }
 }
 
@@ -46,6 +48,16 @@ li img { width: 28px; height: 28px; border-radius: 6px; flex: none; }
 .title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .text { color: var(--muted); }
 .empty { color: var(--muted); text-align: center; padding: 40px 30px; }
+
+.call {
+  display: none;
+  padding: 12px 14px;
+  background: var(--call-bg);
+  border-bottom: 1px solid var(--line);
+}
+.call.show { display: block; }
+.call-title { margin: 0; font-weight: 700; }
+.call-hint { margin: 2px 0 0; font-size: 11px; opacity: 0.8; }
 
 .pairing {
   display: none;

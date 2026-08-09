@@ -9,6 +9,12 @@
     <!-- The connectedDevice FGS type additionally requires at least one transport permission.
          Multicast is the one we genuinely need: mDNS discovery in Phase 4 depends on it. -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <!-- Incoming call alerts. READ_CALL_LOG is what makes the caller's number available in
+         the PHONE_STATE broadcast on most OEMs; without it the Mac shows an unknown caller. -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <!-- Optional: turns a number into a name. The app works without it. -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
     <!-- Scanning the Mac's pairing QR code. Requested at runtime, only while scanning. -->
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Android 13+: needed to post our own persistent service notification. -->
@@ -54,6 +60,14 @@
           <action android:name="android.service.notification.NotificationListenerService" />
         </intent-filter>
       </service>
+
+      <receiver
+        android:name=".PhoneStateReceiver"
+        android:exported="true">
+        <intent-filter>
+          <action android:name="android.intent.action.PHONE_STATE" />
+        </intent-filter>
+      </receiver>
 
       <service
         android:name=".LinkForegroundService"

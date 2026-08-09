@@ -41,6 +41,8 @@ const advertiser = new Advertiser(DEFAULT_PORT);
 /** Last rejected connection attempt, shown in the popup instead of failing silently. */
 let lastRejection: string | null = null;
 const clipboardSync = new ClipboardSync();
+/** Currently ringing call, shown as an in-app banner alongside the native notification. */
+let activeCall: { callerName: string | null; callerNumber: string } | null = null;
 let feed: FeedItem[] = [];
 let connection: ConnectionState = 'waiting';
 
@@ -135,6 +137,7 @@ async function pushState(): Promise<void> {
     qr: primary ? await pairingQrDataUrl(primary) : null,
     peerName: server.getPeerName(),
     clipboardEnabled: clipboardSync.isEnabled(),
+    activeCall,
     pairedCount: keystore.listTrusted().length,
     lastRejection,
   });
@@ -175,9 +178,24 @@ function handleEnvelope(envelope: Envelope): void {
       }
       return;
 
-    // Declared in the protocol but owned by later phases. Ignored, not an error.
-    case 'call_incoming':
+    case 'call_incoming': {
+      console.log(`[call] incoming from ${envelope.callerName ?? envelope.callerNumber}`);
+      presenter.showCall(envelope);
+      activeCall = {
+        callerName: envelope.callerName ?? null,
+        callerNumber: envelope.callerNumber,
+      };
+      void pushState();
+      return;
+    }
     case 'call_ended':
+      console.log('[call] ended');
+      presenter.dismissCall();
+      activeCall = null;
+      void pushState();
+      return;
+
+    // Declared in the protocol but owned by later phases. Ignored, not an error.
     case 'file_offer':
     case 'file_chunk':
     case 'file_complete':
@@ -210,8 +228,11 @@ app.whenReady().then(() => {
     console.log(`[link] ${next}`);
     connection = next;
     updateTrayTitle();
-    // A phone that walked away leaves no stale banners behind.
-    if (next !== 'connected') presenter.dismissAll();
+    // A phone that walked away leaves no stale banners behind — including a ringing call.
+    if (next !== 'connected') {
+      presenter.dismissAll();
+      activeCall = null;
+    }
     void pushState();
   });
   server.on('envelope', handleEnvelope);

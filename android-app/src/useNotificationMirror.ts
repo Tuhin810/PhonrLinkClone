@@ -7,6 +7,7 @@ import { FEED_LIMIT, MAC_PORT, macWsUrl } from './config';
 import { MacDiscovery, type DiscoveredMac } from './discovery/discovery';
 import { getManualHost, setManualHost } from './discovery/settings';
 import { useClipboardSync } from './clipboard/useClipboardSync';
+import { CallState } from './native/callState';
 import { NotificationBridge } from './native/notificationBridge';
 import { ConnectionState, LinkClient } from './net/linkClient';
 
@@ -34,6 +35,8 @@ export interface MirrorState {
   manualHost: string | null;
   /** The Mac we are paired with, if any. Null means pairing is still required. */
   paired: PairedMac | null;
+  /** False when READ_PHONE_STATE was declined; call alerts silently do nothing without it. */
+  callPermission: boolean;
   clipboardEnabled: boolean;
   /** Set when a clipboard payload was skipped for being oversized. */
   clipboardSkipped: boolean;
@@ -61,6 +64,7 @@ export function useNotificationMirror() {
   const [paired, setPaired] = useState<PairedMac | null>(null);
   /** Held only for the duration of a first pairing; never persisted. */
   const [pendingToken, setPendingToken] = useState<string | null>(null);
+  const [callPermission, setCallPermission] = useState(false);
   const [clipboardEnabled, setClipboardEnabled] = useState(true);
   const [clipboardSkipped, setClipboardSkipped] = useState(false);
 
@@ -88,6 +92,40 @@ export function useNotificationMirror() {
     });
     return () => subscription.remove();
   }, [refreshAccess]);
+
+  // Call alerts need phone state; contacts is optional and only turns numbers into names.
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    PermissionsAndroid.requestMultiple([
+      PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE,
+      PermissionsAndroid.PERMISSIONS.READ_CALL_LOG,
+      PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
+    ])
+      .then(() => CallState.hasPhonePermission())
+      .then(setCallPermission)
+      .catch(() => undefined);
+  }, []);
+
+  // Call state forwarding is independent of the socket; envelopes are dropped while offline.
+  useEffect(() => {
+    CallState.startListening();
+    const incoming = CallState.onIncoming(({ callerNumber, callerName }) => {
+      clientRef.current?.send({
+        type: 'call_incoming',
+        callerNumber,
+        ...(callerName ? { callerName } : {}),
+        timestamp: Date.now(),
+      });
+    });
+    const ended = CallState.onEnded(() => {
+      clientRef.current?.send({ type: 'call_ended', timestamp: Date.now() });
+    });
+    return () => {
+      incoming.remove();
+      ended.remove();
+      CallState.stopListening();
+    };
+  }, []);
 
   // Android 13+ needs this before our own foreground-service notification will show.
   useEffect(() => {
@@ -264,6 +302,7 @@ export function useNotificationMirror() {
       deviceName: discovered?.deviceName ?? null,
       manualHost,
       paired,
+      callPermission,
       clipboardEnabled,
       clipboardSkipped,
       discoveryLog,
