@@ -9,7 +9,10 @@ shows "disconnected" and keeps retrying.
 LAN, with mDNS discovery and a manual-address fallback. See
 [docs/progress/PHASE-04-COMPLETE.md](docs/progress/PHASE-04-COMPLETE.md) — note that the
 discovery path could not be verified on the test network, which filters multicast.
-Next up: Phase 5, pairing and encryption — **the LAN port is currently open to any device**.
+**Phase 5 of 9 complete**: devices pair by QR and the channel is encrypted with tweetnacl —
+the LAN port no longer accepts unpaired devices. See
+[docs/progress/PHASE-05-COMPLETE.md](docs/progress/PHASE-05-COMPLETE.md).
+Next up: Phase 6, clipboard sync.
 
 ```bash
 cd mac-app && npm start      # menu bar receiver

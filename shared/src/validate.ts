@@ -116,6 +116,14 @@ export function validateEnvelope(value: unknown): Envelope {
       return { type, fileId: str(o, 'fileId') };
 
     case 'pair_request':
+      return {
+        type,
+        deviceName: str(o, 'deviceName'),
+        pubKey: str(o, 'pubKey'),
+        protocolVersion: intAtLeast(o, 'protocolVersion', 1),
+        pairingProof: optStr(o, 'pairingProof'),
+      };
+
     case 'pair_confirm':
       return {
         type,

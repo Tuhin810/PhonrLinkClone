@@ -15,7 +15,7 @@ import {
 import { parsePairingPayload } from '@phonelink/shared';
 
 interface Props {
-  onScanned(host: string, deviceName: string): void;
+  onScanned(host: string, token: string | null, deviceName: string): void;
   onCancel(): void;
 }
 
@@ -47,7 +47,9 @@ export function ScanQrScreen({ onScanned, onCancel }: Props) {
           continue;
         }
         setHandled(true);
-        onScanned(payload.host, payload.device);
+        // token is absent in v1 payloads; the Mac will then reject us as unpaired, which is
+        // the correct outcome rather than connecting unauthenticated.
+        onScanned(payload.host, payload.token ?? null, payload.device);
         return;
       }
     },

@@ -12,7 +12,7 @@ before approving the next phase. Nothing from a later phase gets built early.
 | 3 | Mac receiver | Electron tray app, WS server, native macOS notifications | ✅ [Done](progress/PHASE-03-COMPLETE.md) |
 | 4 | Discovery | mDNS/Bonjour both sides, remove hardcoded IPs | ✅ [Done](progress/PHASE-04-COMPLETE.md) — discovery leg unverified (this wifi filters multicast); manual fallback verified |
 | 4b | QR pairing (address only) | Mac shows QR, phone scans it to set the address | ✅ [Done](progress/PHASE-04b-QR-PAIRING.md) — physical scan unconfirmed |
-| 5 | Pairing + crypto | QR pairing, shared secret, tweetnacl-encrypted channel | ⬜ Not started |
+| 5 | Pairing + crypto | QR pairing, shared secret, tweetnacl-encrypted channel | ✅ [Done](progress/PHASE-05-COMPLETE.md) — QR scan pending human confirmation |
 | 6 | Clipboard sync | Bidirectional, echo-loop guarded | ⬜ Not started |
 | 7 | Call alerts | `CallStateModule` → Mac banner (detect only, never answer) | ⬜ Not started |
 | 8 | File transfer | Chunked offer/chunk/complete, both directions | ⬜ Not started |

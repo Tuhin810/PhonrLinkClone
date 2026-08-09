@@ -10,6 +10,7 @@ import {
   assertNever,
 } from '@phonelink/shared';
 import { Advertiser } from './advertiser';
+import { Keystore } from './keystore';
 import { LinkServer, type ConnectionState } from './linkServer';
 import { NotificationPresenter } from './notifications';
 import { createTrayIcon } from './trayIcon';
@@ -32,8 +33,12 @@ interface FeedItem {
 let tray: Tray | null = null;
 let popup: BrowserWindow | null = null;
 const presenter = new NotificationPresenter();
-const server = new LinkServer(DEFAULT_PORT);
+// Keystore construction needs app paths, so it is created after 'ready'.
+let keystore: Keystore;
+let server: LinkServer;
 const advertiser = new Advertiser(DEFAULT_PORT);
+/** Last rejected connection attempt, shown in the popup instead of failing silently. */
+let lastRejection: string | null = null;
 let feed: FeedItem[] = [];
 let connection: ConnectionState = 'waiting';
 
@@ -89,23 +94,27 @@ function togglePopup(): void {
  *
  * Cached by address: encoding is cheap but this runs on every notification.
  */
-let qrCache: { host: string; dataUrl: string } | null = null;
+let qrCache: { host: string; token: string; dataUrl: string } | null = null;
 
 async function pairingQrDataUrl(host: string): Promise<string | null> {
-  if (qrCache?.host === host) return qrCache.dataUrl;
+  const token = server.getPairingToken();
+  // Keyed by token as well: rotating the token must produce a new code.
+  if (qrCache?.host === host && qrCache.token === token) return qrCache.dataUrl;
   const payload: PairingPayload = {
     app: 'phonelink',
     v: PAIRING_PAYLOAD_VERSION,
     host,
     port: DEFAULT_PORT,
     device: os.hostname().replace(/\.local$/, ''),
+    pubKey: keystore.getKeyPair().publicKey,
+    token,
   };
   try {
     const dataUrl = await QRCode.toDataURL(JSON.stringify(payload), {
       margin: 1,
       width: 220,
     });
-    qrCache = { host, dataUrl };
+    qrCache = { host, token, dataUrl };
     return dataUrl;
   } catch {
     // A failed QR render must not take the popup down; the address text is still shown.
@@ -122,6 +131,9 @@ async function pushState(): Promise<void> {
     addresses,
     feed,
     qr: primary ? await pairingQrDataUrl(primary) : null,
+    peerName: server.getPeerName(),
+    pairedCount: keystore.listTrusted().length,
+    lastRejection,
   });
 }
 
@@ -173,6 +185,9 @@ function handleEnvelope(envelope: Envelope): void {
 }
 
 app.whenReady().then(() => {
+  keystore = new Keystore();
+  server = new LinkServer(keystore, DEFAULT_PORT);
+
   tray = new Tray(createTrayIcon());
   updateTrayTitle();
   tray.on('click', togglePopup);
@@ -189,6 +204,18 @@ app.whenReady().then(() => {
     void pushState();
   });
   server.on('envelope', handleEnvelope);
+
+  server.on('paired', deviceName => {
+    console.log(`[pair] trusted new device: ${deviceName}`);
+    lastRejection = null;
+    void pushState();
+  });
+
+  server.on('rejected', reason => {
+    console.warn(`[pair] rejected: ${reason}`);
+    lastRejection = reason;
+    void pushState();
+  });
   server.start();
   advertiser.start();
 
@@ -198,6 +225,16 @@ app.whenReady().then(() => {
   // which makes the UI awkward to iterate on.
   if (process.argv.includes('--dev')) togglePopup();
   ipcMain.handle('quit', () => app.quit());
+
+  ipcMain.handle('unpair-all', () => {
+    keystore.unpairAll();
+    server.rotatePairingToken();
+    // Drop whoever is connected: their key is no longer trusted.
+    server.pause();
+    server.resume();
+    qrCache = null;
+    void pushState();
+  });
 
   ipcMain.handle('toggle-connection', () => {
     if (server.isPaused()) {

@@ -108,6 +108,8 @@ android {
 }
 
 dependencies {
+    // Keystore-backed storage for the device's long-term private key (SecureStoreModule).
+    implementation("androidx.security:security-crypto:1.1.0")
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 

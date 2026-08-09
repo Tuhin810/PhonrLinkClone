@@ -5,15 +5,26 @@ import {
   Envelope,
   MISSED_PINGS_BEFORE_DISCONNECT,
   PING_INTERVAL_MS,
+  PROTOCOL_VERSION,
+  deriveSharedKey,
   encodeEnvelope,
+  generatePairingToken,
+  sealEnvelope,
+  tryOpenEnvelope,
   tryParseEnvelope,
+  verifyPairingProof,
 } from '@phonelink/shared';
+import type { Keystore } from './keystore';
 
 export type ConnectionState = 'waiting' | 'connected' | 'paused';
 
 export interface LinkServerEvents {
   state: [ConnectionState];
   envelope: [Envelope];
+  /** Emitted when a new phone completes pairing, so the UI can say so. */
+  paired: [string];
+  /** Rejected connection attempts, surfaced rather than silently dropped. */
+  rejected: [string];
 }
 
 /**
@@ -37,8 +48,31 @@ export class LinkServer extends EventEmitter<LinkServerEvents> {
    */
   private paused = false;
 
-  constructor(private readonly port: number = DEFAULT_PORT) {
+  /** Regenerated whenever the QR is shown, so a token cannot be reused indefinitely. */
+  private pairingToken = generatePairingToken();
+  /** Shared key for the current session; null until the handshake completes. */
+  private sharedKey: string | null = null;
+  private peerName: string | null = null;
+
+  constructor(
+    private readonly keystore: Keystore,
+    private readonly port: number = DEFAULT_PORT,
+  ) {
     super();
+  }
+
+  /** Token embedded in the pairing QR. */
+  getPairingToken(): string {
+    return this.pairingToken;
+  }
+
+  /** Invalidates the current token; called after a successful pairing. */
+  rotatePairingToken(): void {
+    this.pairingToken = generatePairingToken();
+  }
+
+  getPeerName(): string | null {
+    return this.peerName;
   }
 
   start(): void {
@@ -62,7 +96,10 @@ export class LinkServer extends EventEmitter<LinkServerEvents> {
 
   send(envelope: Envelope): boolean {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return false;
-    this.socket.send(encodeEnvelope(envelope));
+    // Only the handshake travels in clear; everything after it is sealed.
+    this.socket.send(
+      this.sharedKey ? sealEnvelope(envelope, this.sharedKey) : encodeEnvelope(envelope),
+    );
     return true;
   }
 
@@ -94,12 +131,22 @@ export class LinkServer extends EventEmitter<LinkServerEvents> {
     this.socket?.close();
     this.socket = socket;
     this.missedPongs = 0;
-    this.setState('connected');
+    this.sharedKey = null;
+    this.peerName = null;
+    // Not 'connected' yet: an unpaired socket must not be treated as a working link.
     this.startHeartbeat();
 
     socket.on('message', raw => {
-      const envelope = tryParseEnvelope(raw.toString());
-      // A malformed frame is dropped, never thrown — it must not take the link down.
+      const text = raw.toString();
+
+      // Before the handshake the only acceptable frame is a clear-text pair_request.
+      if (!this.sharedKey) {
+        this.handleHandshake(socket, text);
+        return;
+      }
+
+      const envelope = tryOpenEnvelope(text, this.sharedKey);
+      // A frame that fails decryption or validation is dropped, never thrown.
       if (!envelope) return;
 
       if (envelope.type === 'pong') {
@@ -116,6 +163,8 @@ export class LinkServer extends EventEmitter<LinkServerEvents> {
     socket.on('close', () => {
       if (this.socket !== socket) return; // superseded by a newer connection
       this.socket = null;
+      this.sharedKey = null;
+      this.peerName = null;
       this.clearHeartbeat();
       if (!this.paused) this.setState('waiting');
     });
@@ -123,6 +172,65 @@ export class LinkServer extends EventEmitter<LinkServerEvents> {
     socket.on('error', () => {
       // 'close' always follows; nothing to do here.
     });
+  }
+
+  /**
+   * Completes (or refuses) the pairing handshake.
+   *
+   * A phone is accepted if it either proves it read the QR token, or presents a public key we
+   * already trust. Anything else is closed: without this, any device on the LAN could connect.
+   */
+  private handleHandshake(socket: WebSocket, text: string): void {
+    const envelope = tryParseEnvelope(text);
+    if (!envelope || envelope.type !== 'pair_request') {
+      this.reject(socket, 'expected a pairing request');
+      return;
+    }
+    if (envelope.protocolVersion !== PROTOCOL_VERSION) {
+      this.reject(
+        socket,
+        `protocol mismatch (phone v${envelope.protocolVersion}, Mac v${PROTOCOL_VERSION})`,
+      );
+      return;
+    }
+
+    const alreadyTrusted = this.keystore.isTrusted(envelope.pubKey);
+    const provedToken =
+      typeof envelope.pairingProof === 'string' &&
+      verifyPairingProof(this.pairingToken, envelope.pubKey, envelope.pairingProof);
+
+    if (!alreadyTrusted && !provedToken) {
+      this.reject(socket, `unpaired device "${envelope.deviceName}" — scan the QR to pair`);
+      return;
+    }
+
+    const keyPair = this.keystore.getKeyPair();
+    this.sharedKey = deriveSharedKey(keyPair.secretKey, envelope.pubKey);
+    this.peerName = envelope.deviceName;
+
+    // Reply in clear: the phone cannot derive the shared key until it has our public key.
+    socket.send(
+      encodeEnvelope({
+        type: 'pair_confirm',
+        deviceName: 'Mac',
+        pubKey: keyPair.publicKey,
+        protocolVersion: PROTOCOL_VERSION,
+      }),
+    );
+
+    if (!alreadyTrusted) {
+      this.keystore.trust(envelope.pubKey, envelope.deviceName);
+      // A token is single-use; a leaked screenshot should not pair a second device later.
+      this.rotatePairingToken();
+      this.emit('paired', envelope.deviceName);
+    }
+
+    this.setState('connected');
+  }
+
+  private reject(socket: WebSocket, reason: string): void {
+    this.emit('rejected', reason);
+    socket.close();
   }
 
   private startHeartbeat(): void {

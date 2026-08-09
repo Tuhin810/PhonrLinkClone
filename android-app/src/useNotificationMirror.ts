@@ -1,13 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, PermissionsAndroid, Platform } from 'react-native';
-import type { NotificationMessage } from '@phonelink/shared';
-import { FEED_LIMIT, macWsUrl } from './config';
+import type { KeyPair, NotificationMessage } from '@phonelink/shared';
+import { getIdentity } from './crypto/identity';
+import { clearPairedMac, getPairedMac, setPairedMac, type PairedMac } from './crypto/pairing';
+import { FEED_LIMIT, MAC_PORT, macWsUrl } from './config';
 import { MacDiscovery, type DiscoveredMac } from './discovery/discovery';
 import { getManualHost, setManualHost } from './discovery/settings';
 import { NotificationBridge } from './native/notificationBridge';
 import { ConnectionState, LinkClient } from './net/linkClient';
 
 export type TargetSource = 'manual' | 'discovered' | 'none';
+
+/** Shown on the Mac as the paired device's name. */
+function androidDeviceName(): string {
+  const constants = Platform.constants as { Model?: string; Brand?: string } | undefined;
+  const model = constants?.Model?.trim();
+  const brand = constants?.Brand?.trim();
+  if (model && brand) return `${brand} ${model}`;
+  return model ?? 'Android phone';
+}
 
 export interface MirrorState {
   connection: ConnectionState;
@@ -20,6 +31,8 @@ export interface MirrorState {
   targetSource: TargetSource;
   deviceName: string | null;
   manualHost: string | null;
+  /** The Mac we are paired with, if any. Null means pairing is still required. */
+  paired: PairedMac | null;
   /** Recent discovery events, shown in the UI because JS logs only reach Metro. */
   discoveryLog: string[];
   /** True once discovery has run long enough that silence means the network blocks it. */
@@ -40,6 +53,10 @@ export function useNotificationMirror() {
   const [manualHost, setManualHostState] = useState<string | null>(null);
   const [discoveryLog, setDiscoveryLog] = useState<string[]>([]);
   const [discoveryLikelyBlocked, setDiscoveryLikelyBlocked] = useState(false);
+  const [identity, setIdentity] = useState<KeyPair | null>(null);
+  const [paired, setPaired] = useState<PairedMac | null>(null);
+  /** Held only for the duration of a first pairing; never persisted. */
+  const [pendingToken, setPendingToken] = useState<string | null>(null);
 
   const clientRef = useRef<LinkClient | null>(null);
 
@@ -76,6 +93,8 @@ export function useNotificationMirror() {
 
   useEffect(() => {
     getManualHost().then(setManualHostState).catch(() => undefined);
+    getIdentity().then(setIdentity).catch(() => undefined);
+    getPairedMac().then(setPaired).catch(() => undefined);
   }, []);
 
   // Foreground service and the notification listener are independent of any Mac being found.
@@ -129,15 +148,32 @@ export function useNotificationMirror() {
     };
   }, [manualHost]);
 
-  // One socket per target; changing the address tears the old one down.
+  // One socket per target; changing the address or credentials tears the old one down.
   useEffect(() => {
-    if (!target) {
+    // Without an identity there is nothing to authenticate with, and without either a paired
+    // Mac or a fresh token the Mac would reject us anyway — so do not even dial.
+    if (!target || !identity || (!paired && !pendingToken)) {
       setConnection('disconnected');
       return;
     }
     const client = new LinkClient({
       url: macWsUrl(target),
+      identity,
+      deviceName: androidDeviceName(),
+      macPubKey: paired?.pubKey ?? null,
+      pairingToken: pendingToken,
       onStateChange: setConnection,
+      onPaired: (macPubKey, macName) => {
+        const record: PairedMac = {
+          host: target,
+          port: MAC_PORT,
+          deviceName: macName,
+          pubKey: macPubKey,
+        };
+        setPaired(record);
+        setPendingToken(null);
+        setPairedMac(record).catch(() => undefined);
+      },
     });
     clientRef.current = client;
     client.start();
@@ -145,10 +181,23 @@ export function useNotificationMirror() {
       client.stop();
       clientRef.current = null;
     };
-  }, [target]);
+  }, [target, identity, paired, pendingToken]);
 
   const openSettings = useCallback(async () => {
     await NotificationBridge.openNotificationAccessSettings();
+  }, []);
+
+  /** Called after scanning the Mac's QR: address plus the one-time pairing token. */
+  const beginPairing = useCallback(async (host: string, token: string | null) => {
+    await setManualHost(host);
+    setManualHostState(host);
+    setPendingToken(token);
+  }, []);
+
+  const unpair = useCallback(async () => {
+    setPaired(null);
+    setPendingToken(null);
+    await clearPairedMac();
   }, []);
 
   const saveManualHost = useCallback(async (host: string | null) => {
@@ -167,11 +216,14 @@ export function useNotificationMirror() {
       targetSource,
       deviceName: discovered?.deviceName ?? null,
       manualHost,
+      paired,
       discoveryLog,
       discoveryLikelyBlocked,
     } as MirrorState,
     openSettings,
     refreshAccess,
     saveManualHost,
+    beginPairing,
+    unpair,
   };
 }

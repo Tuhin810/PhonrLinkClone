@@ -57,7 +57,8 @@ function NotificationRow({ item }: { item: NotificationMessage }) {
 
 function App(): React.JSX.Element {
   const isDark = useColorScheme() === 'dark';
-  const { state, openSettings, saveManualHost } = useNotificationMirror();
+  const { state, openSettings, saveManualHost, beginPairing, unpair } =
+    useNotificationMirror();
   const [showManual, setShowManual] = React.useState(false);
   const [scanning, setScanning] = React.useState(false);
   const [draftHost, setDraftHost] = React.useState('');
@@ -65,6 +66,10 @@ function App(): React.JSX.Element {
   React.useEffect(() => {
     setDraftHost(state.manualHost ?? '');
   }, [state.manualHost]);
+
+  const pairedLabel = state.paired
+    ? `Paired with ${state.paired.deviceName}`
+    : 'Not paired — scan the QR in the Mac app';
 
   const targetLabel =
     state.targetSource === 'none'
@@ -80,8 +85,8 @@ function App(): React.JSX.Element {
   if (scanning) {
     return (
       <ScanQrScreen
-        onScanned={host => {
-          saveManualHost(host);
+        onScanned={(host, token) => {
+          beginPairing(host, token);
           setScanning(false);
         }}
         onCancel={() => setScanning(false)}
@@ -101,6 +106,7 @@ function App(): React.JSX.Element {
           />
           <Text style={styles.statusText}>{STATUS_LABEL[state.connection]}</Text>
         </View>
+        <Text style={styles.target}>{pairedLabel}</Text>
         <Text style={styles.target}>{targetLabel}</Text>
         {state.targetSource === 'none' &&
           state.discoveryLog.map((line, index) => (
@@ -117,6 +123,11 @@ function App(): React.JSX.Element {
               {showManual ? 'Hide manual address' : 'Enter address manually'}
             </Text>
           </TouchableOpacity>
+          {state.paired && (
+            <TouchableOpacity onPress={() => unpair()}>
+              <Text style={styles.link}>Unpair</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -124,8 +135,8 @@ function App(): React.JSX.Element {
         <TouchableOpacity style={styles.banner} onPress={() => setShowManual(true)}>
           <Text style={styles.bannerTitle}>Discovery isn't finding your Mac</Text>
           <Text style={styles.bannerBody}>
-            Guest and public wifi commonly block the discovery protocol. Scan the QR code in
-            the Mac app's menu bar popup, or tap here to type the address instead.
+            Scan the QR code in the Mac app's menu bar popup — that both finds your Mac and
+            pairs the two devices. Typing the address alone will not pair them.
           </Text>
         </TouchableOpacity>
       )}
@@ -133,8 +144,8 @@ function App(): React.JSX.Element {
       {showManual && (
         <View style={styles.manualBox}>
           <Text style={styles.manualHint}>
-            Some networks block the discovery protocol — guest and public wifi usually do.
-            Enter your Mac's IP address to connect anyway.
+            Some networks block the discovery protocol. Entering the address helps only if
+            the devices are already paired — first-time setup needs the QR code.
           </Text>
           <TextInput
             style={styles.input}

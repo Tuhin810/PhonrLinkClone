@@ -7,6 +7,7 @@ const qr = document.getElementById('qr');
 const empty = document.getElementById('empty');
 
 const toggle = document.getElementById('toggle');
+const rejection = document.getElementById('rejection');
 
 const STATUS_TEXT = {
   connected: 'Phone connected',
@@ -18,8 +19,15 @@ function render(state) {
   const connected = state.connection === 'connected';
   const paused = state.connection === 'paused';
   dot.className = `dot ${state.connection}`;
-  status.textContent = STATUS_TEXT[state.connection] ?? 'Waiting for phone…';
+  status.textContent =
+    connected && state.peerName
+      ? state.peerName
+      : (STATUS_TEXT[state.connection] ?? 'Waiting for phone…');
   toggle.textContent = paused ? 'Allow connections' : 'Disconnect';
+  // A rejected pairing attempt is worth showing: silence looks like a bug.
+  rejection.textContent = state.lastRejection ?? '';
+  rejection.classList.toggle('show', Boolean(state.lastRejection));
+
   address.textContent = state.addresses.length
     ? `${state.addresses.join(', ')} : ${state.port}`
     : `port ${state.port} — no LAN address`;
@@ -68,4 +76,5 @@ function render(state) {
 window.phonelink.onState(render);
 window.phonelink.requestState();
 toggle.addEventListener('click', () => window.phonelink.toggleConnection());
+document.getElementById('unpair').addEventListener('click', () => window.phonelink.unpairAll());
 document.getElementById('quit').addEventListener('click', () => window.phonelink.quit());

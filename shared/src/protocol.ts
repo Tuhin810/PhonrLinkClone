@@ -3,8 +3,11 @@
  * Both apps import this package; neither side invents fields.
  */
 
-/** Bumped on any breaking change. Exchanged during pairing so mismatches fail loudly. */
-export const PROTOCOL_VERSION = 1;
+/**
+ * Bumped on any breaking change. Exchanged during pairing so mismatches fail loudly.
+ * v2 added the encrypted channel and `pairingProof`.
+ */
+export const PROTOCOL_VERSION = 2;
 
 /** Default LAN port the Mac listens on. */
 export const DEFAULT_PORT = 47711;
@@ -36,9 +39,13 @@ export interface PairingPayload {
   host: string;
   port: number;
   device: string;
+  /** Mac's long-term public key. Present from v2. */
+  pubKey?: string;
+  /** One-time pairing token. Present from v2. */
+  token?: string;
 }
 
-export const PAIRING_PAYLOAD_VERSION = 1;
+export const PAIRING_PAYLOAD_VERSION = 2;
 
 /** Parses a scanned QR string. Returns null for anything that is not our payload. */
 export function parsePairingPayload(raw: string): PairingPayload | null {
@@ -60,6 +67,8 @@ export function parsePairingPayload(raw: string): PairingPayload | null {
     host: o['host'],
     port: o['port'],
     device: typeof o['device'] === 'string' ? o['device'] : 'Mac',
+    pubKey: typeof o['pubKey'] === 'string' ? o['pubKey'] : undefined,
+    token: typeof o['token'] === 'string' ? o['token'] : undefined,
   };
 }
 
@@ -128,6 +137,11 @@ export interface PairRequestMessage {
   deviceName: string;
   pubKey: string;
   protocolVersion: number;
+  /**
+   * Keyed hash over `pubKey` using the token from the Mac's QR, proving the phone read the
+   * screen. Absent when reconnecting with an already-trusted key.
+   */
+  pairingProof?: string;
 }
 
 export interface PairConfirmMessage {

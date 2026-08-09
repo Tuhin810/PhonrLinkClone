@@ -2,7 +2,12 @@ import {
   Envelope,
   MISSED_PINGS_BEFORE_DISCONNECT,
   PING_INTERVAL_MS,
+  PROTOCOL_VERSION,
+  deriveSharedKey,
   encodeEnvelope,
+  pairingProof,
+  sealEnvelope,
+  tryOpenEnvelope,
   tryParseEnvelope,
 } from '@phonelink/shared';
 
@@ -10,8 +15,17 @@ export type ConnectionState = 'connecting' | 'connected' | 'disconnected';
 
 interface LinkClientOptions {
   url: string;
+  /** This device's long-term keypair. */
+  identity: { publicKey: string; secretKey: string };
+  deviceName: string;
+  /** Mac's public key, once paired. Null on a first pairing. */
+  macPubKey: string | null;
+  /** One-time token from the QR, used only for a first pairing. */
+  pairingToken?: string | null;
   onStateChange(state: ConnectionState): void;
   onEnvelope?(envelope: Envelope): void;
+  /** Called when the Mac confirms pairing, so its key can be persisted. */
+  onPaired?(macPubKey: string, deviceName: string): void;
 }
 
 const BASE_RETRY_MS = 1_000;
@@ -31,6 +45,8 @@ export class LinkClient {
   private pingTimer: ReturnType<typeof setInterval> | null = null;
   private missedPongs = 0;
   private stopped = true;
+  /** Null until the handshake completes; every later frame is sealed with it. */
+  private sharedKey: string | null = null;
 
   constructor(private readonly options: LinkClientOptions) {}
 
@@ -44,13 +60,17 @@ export class LinkClient {
     this.clearTimers();
     this.socket?.close();
     this.socket = null;
+    this.sharedKey = null;
     this.setState('disconnected');
   }
 
   /** Queues nothing: if the socket is down the message is dropped, by design for Phase 2. */
   send(envelope: Envelope): boolean {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return false;
-    this.socket.send(encodeEnvelope(envelope));
+    // Refuse to send anything before the channel is encrypted. Silently leaking a
+    // notification in clear text would be worse than dropping it.
+    if (!this.sharedKey) return false;
+    this.socket.send(sealEnvelope(envelope, this.sharedKey));
     return true;
   }
 
@@ -69,14 +89,47 @@ export class LinkClient {
     socket.onopen = () => {
       this.retryAttempt = 0;
       this.missedPongs = 0;
-      this.setState('connected');
-      this.startHeartbeat();
+      this.sharedKey = null;
+      // Connected at the socket level, but not usable until the Mac confirms pairing.
+      const { identity, deviceName, pairingToken } = this.options;
+      socket.send(
+        encodeEnvelope({
+          type: 'pair_request',
+          deviceName,
+          pubKey: identity.publicKey,
+          protocolVersion: PROTOCOL_VERSION,
+          // Only sent on a first pairing; afterwards our key alone is the credential.
+          ...(pairingToken
+            ? { pairingProof: pairingProof(pairingToken, identity.publicKey) }
+            : {}),
+        }),
+      );
     };
 
     socket.onmessage = event => {
       if (typeof event.data !== 'string') return;
-      const envelope = tryParseEnvelope(event.data);
-      // Malformed frames are dropped rather than thrown — a bad frame must not kill the link.
+
+      // Before the handshake completes the only expected frame is a clear-text pair_confirm.
+      if (!this.sharedKey) {
+        const handshake = tryParseEnvelope(event.data);
+        if (!handshake || handshake.type !== 'pair_confirm') return;
+        if (handshake.protocolVersion !== PROTOCOL_VERSION) {
+          // Version mismatch: fail loudly rather than talking past each other.
+          socket.close();
+          return;
+        }
+        this.sharedKey = deriveSharedKey(
+          this.options.identity.secretKey,
+          handshake.pubKey,
+        );
+        this.setState('connected');
+        this.startHeartbeat();
+        this.options.onPaired?.(handshake.pubKey, handshake.deviceName);
+        return;
+      }
+
+      const envelope = tryOpenEnvelope(event.data, this.sharedKey);
+      // Frames that fail decryption or validation are dropped, never thrown.
       if (!envelope) return;
       if (envelope.type === 'pong') {
         this.missedPongs = 0;
@@ -95,6 +148,7 @@ export class LinkClient {
 
     socket.onclose = () => {
       if (this.socket === socket) this.socket = null;
+      this.sharedKey = null;
       this.clearTimers();
       this.setState('disconnected');
       this.scheduleReconnect();

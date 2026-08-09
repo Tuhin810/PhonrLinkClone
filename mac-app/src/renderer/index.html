@@ -18,8 +18,9 @@
       <div id="address" class="muted"></div>
     </header>
     <section id="pairing" class="pairing">
-      <p class="pair-hint">Scan with PhoneLink Clone on your phone to connect</p>
+      <p class="pair-hint">Scan with PhoneLink Clone on your phone to pair</p>
       <img id="qr" alt="Pairing QR code" />
+      <p id="rejection" class="rejection"></p>
     </section>
     <main>
       <ul id="feed"></ul>
@@ -29,6 +30,7 @@
     </main>
     <footer>
       <button id="toggle">Disconnect</button>
+      <button id="unpair">Unpair</button>
       <button id="quit">Quit</button>
     </footer>
     <script src="popup.js"></script>

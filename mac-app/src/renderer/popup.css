@@ -6,6 +6,7 @@
   --ok: #30a14e;
   --wait: #8e8e93;
   --paused: #d97706;
+  --warn: #c2410c;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -56,6 +57,8 @@ li img { width: 28px; height: 28px; border-radius: 6px; flex: none; }
 .pair-hint { margin: 0 0 10px; color: var(--muted); font-size: 11px; }
 /* The QR must stay white-on-black-ink to scan; it does not follow the theme. */
 #qr { width: 180px; height: 180px; background: #fff; border-radius: 6px; padding: 6px; }
+.rejection { display: none; margin: 10px 0 0; color: var(--warn); font-size: 11px; }
+.rejection.show { display: block; }
 
 footer {
   display: flex;
