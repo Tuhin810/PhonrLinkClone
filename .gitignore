@@ -1,0 +1,8 @@
+node_modules/
+dist/
+build/
+*.log
+.DS_Store
+android-app/android/.gradle/
+android-app/android/app/build/
+mac-app/out/
