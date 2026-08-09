@@ -201,6 +201,11 @@ function App(): React.JSX.Element {
           </Text>
         </TouchableOpacity>
       )}
+      {state.lastInput && (
+        <View style={styles.counters}>
+          <Text style={styles.counterText}>Last remote input: {state.lastInput}</Text>
+        </View>
+      )}
       {state.mirrorReason && (
         <View style={styles.counters}>
           <Text style={styles.counterText}>{state.mirrorReason}</Text>

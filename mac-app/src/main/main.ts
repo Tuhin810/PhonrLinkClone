@@ -376,6 +376,24 @@ app.whenReady().then(() => {
     openWhenReady();
   }
 
+  // Dev helper: `electron . --input-test` fires a home key then a tap once connected, so the
+  // remote-input path can be checked without clicking the mirror window by hand.
+  const inputTestIndex = process.argv.indexOf('--input-test');
+  if (inputTestIndex >= 0) {
+    const x = Number(process.argv[inputTestIndex + 1] ?? '0.5');
+    const y = Number(process.argv[inputTestIndex + 2] ?? '0.5');
+    const runTest = () => {
+      if (server.getState() !== 'connected') return;
+      server.off('state', runTest);
+      setTimeout(() => {
+        console.log(`[input-test] tapping ${x}, ${y}`);
+        server.send({ type: 'input_tap', x, y });
+      }, 1500);
+    };
+    server.on('state', runTest);
+    runTest();
+  }
+
   // Dev helper: `electron . --send-file <path>` sends a file as soon as a phone connects,
   // so the transfer path can be exercised without performing a drag gesture by hand.
   const sendFileIndex = process.argv.indexOf('--send-file');

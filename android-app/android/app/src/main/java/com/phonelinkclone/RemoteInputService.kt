@@ -59,6 +59,9 @@ class RemoteInputService : AccessibilityService() {
       if (x1 != x2 || y1 != y2) lineTo(x2, y2)
     }
     val stroke = GestureDescription.StrokeDescription(path, 0, durationMs.coerceAtLeast(1))
-    return dispatchGesture(GestureDescription.Builder().addStroke(stroke).build(), null, null)
+    val accepted =
+      dispatchGesture(GestureDescription.Builder().addStroke(stroke).build(), null, null)
+    android.util.Log.i("PhoneLinkInput", "gesture ($x1,$y1)->($x2,$y2) accepted=$accepted")
+    return accepted
   }
 }

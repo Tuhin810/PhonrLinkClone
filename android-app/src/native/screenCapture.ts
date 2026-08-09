@@ -9,6 +9,7 @@ interface ScreenCaptureNative {
   swipe(x1: number, y1: number, x2: number, y2: number, durationMs: number): Promise<boolean>;
   globalAction(name: string): Promise<boolean>;
   getScreenSize(): Promise<{ width: number; height: number }>;
+  logDebug(message: string): void;
 }
 
 const native = NativeModules.ScreenCapture as ScreenCaptureNative | undefined;
@@ -25,6 +26,8 @@ export const ScreenCapture = {
   globalAction: (name: string) => native?.globalAction(name) ?? Promise.resolve(false),
   getScreenSize: () =>
     native?.getScreenSize() ?? Promise.resolve({ width: 0, height: 0 }),
+  /** Traces to logcat; RN's console only reaches Metro. */
+  log: (message: string) => native?.logDebug(message),
   onFrame(handler: (payload: { data: string; width: number; height: number }) => void) {
     return emitter.addListener('phonelink:screenFrame', handler);
   },

@@ -106,7 +106,9 @@ class ScreenCaptureModule(
 
   @ReactMethod
   fun tap(x: Double, y: Double, promise: Promise) {
-    promise.resolve(RemoteInputService.tap(x.toFloat(), y.toFloat()))
+    val dispatched = RemoteInputService.tap(x.toFloat(), y.toFloat())
+    android.util.Log.i(NAME, "tap ($x, $y) dispatched=$dispatched running=${RemoteInputService.isRunning()}")
+    promise.resolve(dispatched)
   }
 
   @ReactMethod
@@ -118,6 +120,7 @@ class ScreenCaptureModule(
     durationMs: Double,
     promise: Promise,
   ) {
+    android.util.Log.i(NAME, "swipe ($x1,$y1)->($x2,$y2) running=${RemoteInputService.isRunning()}")
     promise.resolve(
       RemoteInputService.swipe(
         x1.toFloat(),
@@ -156,6 +159,18 @@ class ScreenCaptureModule(
         putInt("height", bounds.height())
       },
     )
+  }
+
+  /**
+   * Writes a line to logcat from JS.
+   *
+   * React Native's console output only reaches Metro, never logcat, which makes anything
+   * happening while the app is backgrounded invisible. This is the only way to trace the input
+   * path without screenshotting the phone.
+   */
+  @ReactMethod
+  fun logDebug(message: String) {
+    android.util.Log.i("PhoneLinkJS", message)
   }
 
   @ReactMethod

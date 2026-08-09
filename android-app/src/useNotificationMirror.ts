@@ -10,6 +10,7 @@ import { useClipboardSync } from './clipboard/useClipboardSync';
 import { useFileTransfer, type TransferProgress } from './files/useFileTransfer';
 import { useScreenMirror } from './mirror/useScreenMirror';
 import { CallState } from './native/callState';
+import { ScreenCapture } from './native/screenCapture';
 import { NotificationBridge } from './native/notificationBridge';
 import { ConnectionState, LinkClient } from './net/linkClient';
 
@@ -44,6 +45,8 @@ export interface MirrorState {
   mirroring: boolean;
   inputAvailable: boolean;
   mirrorReason: string | null;
+  /** Last remote input seen, for diagnosing the path end to end. */
+  lastInput: string | null;
   transfer: TransferProgress | null;
   transferError: string | null;
   clipboardEnabled: boolean;
@@ -75,6 +78,7 @@ export function useNotificationMirror() {
   const [pendingToken, setPendingToken] = useState<string | null>(null);
   const [callPermission, setCallPermission] = useState(false);
   const [callActionError, setCallActionError] = useState<string | null>(null);
+  const [lastInput, setLastInput] = useState<string | null>(null);
   const [clipboardEnabled, setClipboardEnabled] = useState(true);
   const [clipboardSkipped, setClipboardSkipped] = useState(false);
 
@@ -228,12 +232,15 @@ export function useNotificationMirror() {
       pairingToken: pendingToken,
       onStateChange: setConnection,
       onEnvelope: envelope => {
+        ScreenCapture.log(`envelope ${envelope.type}`);
         if (envelope.type === 'screen_control') {
           if (envelope.action === 'start') void mirrorRef.current.startMirror();
           else mirrorRef.current.stopMirror();
           return;
         }
         if (envelope.type.startsWith('input_')) {
+          ScreenCapture.log(`routing ${envelope.type}`);
+          setLastInput(`${envelope.type} @ ${new Date().toLocaleTimeString()}`);
           void mirrorRef.current.handleInput(envelope);
           return;
         }
@@ -371,6 +378,7 @@ export function useNotificationMirror() {
       mirroring,
       inputAvailable,
       mirrorReason,
+      lastInput,
       transfer,
       transferError,
       clipboardEnabled,

@@ -70,7 +70,17 @@ export function useScreenMirror({ send }: Options) {
 
   /** Applies a remote input envelope, scaling normalised coordinates to real pixels. */
   const handleInput = useCallback(async (envelope: Envelope) => {
+    // The cached size can be missing if the first lookup failed or the app restarted; fetch it
+    // rather than silently dropping the input, which is impossible to diagnose from the Mac.
+    if (!screenSize.current.width || !screenSize.current.height) {
+      try {
+        screenSize.current = await ScreenCapture.getScreenSize();
+      } catch {
+        return;
+      }
+    }
     const { width, height } = screenSize.current;
+    ScreenCapture.log(`handleInput ${envelope.type} screen=${width}x${height}`);
     if (!width || !height) return;
 
     switch (envelope.type) {
