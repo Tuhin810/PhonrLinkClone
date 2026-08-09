@@ -7,6 +7,7 @@ import { FEED_LIMIT, MAC_PORT, macWsUrl } from './config';
 import { MacDiscovery, type DiscoveredMac } from './discovery/discovery';
 import { getManualHost, setManualHost } from './discovery/settings';
 import { useClipboardSync } from './clipboard/useClipboardSync';
+import { useFileTransfer, type TransferProgress } from './files/useFileTransfer';
 import { CallState } from './native/callState';
 import { NotificationBridge } from './native/notificationBridge';
 import { ConnectionState, LinkClient } from './net/linkClient';
@@ -39,6 +40,8 @@ export interface MirrorState {
   callPermission: boolean;
   /** Why the last remote decline/silence failed, if it did. */
   callActionError: string | null;
+  transfer: TransferProgress | null;
+  transferError: string | null;
   clipboardEnabled: boolean;
   /** Set when a clipboard payload was skipped for being oversized. */
   clipboardSkipped: boolean;
@@ -231,6 +234,14 @@ export function useNotificationMirror() {
           request.catch((error: Error) => setCallActionError(error.message));
           return;
         }
+        if (
+          envelope.type === 'file_offer' ||
+          envelope.type === 'file_chunk' ||
+          envelope.type === 'file_complete'
+        ) {
+          void fileEnvelopeRef.current(envelope);
+          return;
+        }
         if (envelope.type !== 'clipboard_update') return;
         // Ignore anything we originated; the Mac tags what it sends.
         if (envelope.sourceDevice === 'phone') return;
@@ -261,6 +272,8 @@ export function useNotificationMirror() {
     return () => {
       client.stop();
       clientRef.current = null;
+      // A half-received file is worthless; do not leave temp files behind.
+      abortTransfers();
     };
   }, [target, identityPubKey, pairedPubKey, pendingToken]);
 
@@ -269,6 +282,17 @@ export function useNotificationMirror() {
       clientRef.current?.send(envelope) ?? false,
     [],
   );
+
+  const {
+    progress: transfer,
+    error: transferError,
+    sendFile,
+    handleEnvelope: handleFileEnvelope,
+    abortAll: abortTransfers,
+  } = useFileTransfer({ send: sendViaClient });
+
+  const fileEnvelopeRef = useRef(handleFileEnvelope);
+  fileEnvelopeRef.current = handleFileEnvelope;
 
   const { applyRemote, sendCurrentClipboard } = useClipboardSync({
     enabled: clipboardEnabled,
@@ -318,6 +342,8 @@ export function useNotificationMirror() {
       paired,
       callPermission,
       callActionError,
+      transfer,
+      transferError,
       clipboardEnabled,
       clipboardSkipped,
       discoveryLog,
@@ -330,5 +356,6 @@ export function useNotificationMirror() {
     unpair,
     setClipboardEnabled,
     sendCurrentClipboard,
+    sendFile,
   };
 }

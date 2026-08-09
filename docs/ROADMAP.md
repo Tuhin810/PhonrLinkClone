@@ -15,7 +15,7 @@ before approving the next phase. Nothing from a later phase gets built early.
 | 5 | Pairing + crypto | QR pairing, shared secret, tweetnacl-encrypted channel | ✅ [Done](progress/PHASE-05-COMPLETE.md) — QR scan pending human confirmation |
 | 6 | Clipboard sync | Bidirectional, echo-loop guarded | ✅ [Done](progress/PHASE-06-COMPLETE.md) — Mac→phone verified; phone→Mac needs app focus |
 | 7 | Call alerts | `CallStateModule` → Mac banner (detect only, never answer) | ✅ [Done](progress/PHASE-07-COMPLETE.md) — needs a real call to confirm |
-| 8 | File transfer | Chunked offer/chunk/complete, both directions | ⬜ Not started |
+| 8 | File transfer | Chunked offer/chunk/complete, both directions | ✅ [Done](progress/PHASE-08-COMPLETE.md) — engine tested; drag-drop and picker need a human |
 | 9 | Polish | Reconnect, battery whitelist prompt, launch-at-login | ⬜ Not started |
 
 **Vertical slice = phases 1–3.** Get a notification from the phone onto the Mac screen over

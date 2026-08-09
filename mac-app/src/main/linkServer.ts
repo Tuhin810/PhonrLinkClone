@@ -75,6 +75,11 @@ export class LinkServer extends EventEmitter<LinkServerEvents> {
     return this.peerName;
   }
 
+  /** Whether the socket's send buffer has drained; used as backpressure by file transfers. */
+  isDrained(): boolean {
+    return !this.socket || this.socket.bufferedAmount < 1_000_000;
+  }
+
   start(): void {
     // 0.0.0.0 so the phone can reach us; this is a LAN-only app by design.
     this.server = new WebSocketServer({ port: this.port, host: '0.0.0.0' });

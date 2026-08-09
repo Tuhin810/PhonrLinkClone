@@ -11,6 +11,7 @@ import {
 } from '@phonelink/shared';
 import { Advertiser } from './advertiser';
 import { ClipboardSync } from './clipboardSync';
+import { FileTransfers, type TransferProgress } from './fileTransfer';
 import { Keystore } from './keystore';
 import { LinkServer, type ConnectionState } from './linkServer';
 import { NotificationPresenter } from './notifications';
@@ -43,6 +44,9 @@ let lastRejection: string | null = null;
 const clipboardSync = new ClipboardSync();
 /** Currently ringing call, shown as an in-app banner alongside the native notification. */
 let activeCall: { callerName: string | null; callerNumber: string } | null = null;
+const transfers = new FileTransfers();
+let transferProgress: TransferProgress | null = null;
+let transferMessage: string | null = null;
 let feed: FeedItem[] = [];
 let connection: ConnectionState = 'waiting';
 
@@ -137,6 +141,8 @@ async function pushState(): Promise<void> {
     qr: primary ? await pairingQrDataUrl(primary) : null,
     peerName: server.getPeerName(),
     clipboardEnabled: clipboardSync.isEnabled(),
+    transfer: transferProgress,
+    transferMessage,
     activeCall,
     pairedCount: keystore.listTrusted().length,
     lastRejection,
@@ -202,6 +208,9 @@ function handleEnvelope(envelope: Envelope): void {
     case 'file_offer':
     case 'file_chunk':
     case 'file_complete':
+      void transfers.handle(envelope, e => server.send(e));
+      return;
+
     case 'pair_request':
     case 'pair_confirm':
       return;
@@ -235,6 +244,8 @@ app.whenReady().then(() => {
     if (next !== 'connected') {
       presenter.dismissAll();
       activeCall = null;
+      // Half-received files are worthless; do not leave temp files behind either.
+      void transfers.abortAll();
     }
     void pushState();
   });
@@ -268,12 +279,39 @@ app.whenReady().then(() => {
   );
   clipboardSync.start();
 
+  transfers.on('progress', progress => {
+    transferProgress = progress;
+    void pushState();
+  });
+  transfers.on('received', target => {
+    console.log(`[file] saved ${target}`);
+    transferMessage = `Saved ${path.basename(target)} to Downloads/PhoneLinkClone`;
+    void pushState();
+  });
+  transfers.on('error', message => {
+    console.warn(`[file] ${message}`);
+    transferMessage = message;
+    void pushState();
+  });
+
   ipcMain.handle('request-state', () => pushState());
 
   // `npm run dev` opens the popup immediately; otherwise it only appears on a tray click,
   // which makes the UI awkward to iterate on.
   if (process.argv.includes('--dev')) togglePopup();
   ipcMain.handle('quit', () => app.quit());
+
+  ipcMain.handle('send-files', async (_event, filePaths: unknown) => {
+    if (!Array.isArray(filePaths)) return;
+    for (const filePath of filePaths) {
+      if (typeof filePath !== 'string') continue;
+      await transfers.send(
+        filePath,
+        envelope => server.send(envelope),
+        () => server.isDrained(),
+      );
+    }
+  });
 
   ipcMain.handle('call-action', (_event, action: unknown) => {
     if (action !== 'decline' && action !== 'silence') return;

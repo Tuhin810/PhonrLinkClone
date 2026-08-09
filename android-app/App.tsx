@@ -65,6 +65,7 @@ function App(): React.JSX.Element {
     unpair,
     setClipboardEnabled,
     sendCurrentClipboard,
+    sendFile,
   } = useNotificationMirror();
   const [showManual, setShowManual] = React.useState(false);
   const [scanning, setScanning] = React.useState(false);
@@ -182,6 +183,23 @@ function App(): React.JSX.Element {
             PhoneLink Clone, then return here.
           </Text>
         </TouchableOpacity>
+      )}
+
+      <View style={styles.counters}>
+        <TouchableOpacity onPress={() => sendFile()}>
+          <Text style={styles.link}>Send a file to Mac</Text>
+        </TouchableOpacity>
+        {state.transfer && (
+          <Text style={styles.counterText}>
+            {state.transfer.direction === 'sending' ? 'Sending' : 'Receiving'}{' '}
+            {state.transfer.fileName} — {state.transfer.done}/{state.transfer.total}
+          </Text>
+        )}
+      </View>
+      {state.transferError && (
+        <View style={styles.counters}>
+          <Text style={styles.counterText}>Transfer error: {state.transferError}</Text>
+        </View>
       )}
 
       <View style={styles.counters}>

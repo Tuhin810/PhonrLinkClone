@@ -62,6 +62,18 @@ li img { width: 28px; height: 28px; border-radius: 6px; flex: none; }
 .call-actions button { color: var(--fg); font-weight: 600; }
 .call-actions .danger { color: var(--warn); }
 
+.drop {
+  padding: 12px 14px;
+  margin: 10px 14px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 11px;
+}
+.drop.over { border-color: var(--ok); color: var(--fg); }
+.drop p { margin: 0; }
+
 .pairing {
   display: none;
   padding: 14px;

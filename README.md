@@ -18,7 +18,9 @@ the LAN port no longer accepts unpaired devices. See
 **Phase 7 of 9 complete**: incoming calls raise a banner on the Mac (detection only — you
 still answer on the phone). See
 [docs/progress/PHASE-07-COMPLETE.md](docs/progress/PHASE-07-COMPLETE.md).
-Next up: Phase 8, file transfer.
+**Phase 8 of 9 complete**: chunked file transfer both directions, drag-and-drop on the Mac and
+a picker on the phone. See [docs/progress/PHASE-08-COMPLETE.md](docs/progress/PHASE-08-COMPLETE.md).
+Next up: Phase 9, polish — the last phase.
 
 ```bash
 cd mac-app && npm start      # menu bar receiver

@@ -4,7 +4,14 @@
     "outDir": "dist-test",
     "rootDir": ".",
     "sourceMap": false,
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["src/main/linkServer.ts", "src/main/keystore.ts", "test"]
+  "include": [
+    "src/main/linkServer.ts",
+    "src/main/keystore.ts",
+    "src/main/fileTransfer.ts",
+    "test"
+  ]
 }

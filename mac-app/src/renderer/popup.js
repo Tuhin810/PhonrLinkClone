@@ -9,6 +9,8 @@ const empty = document.getElementById('empty');
 const toggle = document.getElementById('toggle');
 const rejection = document.getElementById('rejection');
 const clipboardButton = document.getElementById('clipboard');
+const drop = document.getElementById('drop');
+const dropText = document.getElementById('drop-text');
 const call = document.getElementById('call');
 const callCaller = document.getElementById('call-caller');
 
@@ -54,6 +56,17 @@ function render(state) {
     pairing.classList.remove('show');
   }
 
+  // Progress replaces the prompt while a transfer is running, so the zone is never ambiguous.
+  if (state.transfer) {
+    const { direction, fileName, done, total } = state.transfer;
+    const verb = direction === 'sending' ? 'Sending' : 'Receiving';
+    dropText.textContent = `${verb} ${fileName} — ${done}/${total}`;
+  } else if (state.transferMessage) {
+    dropText.textContent = state.transferMessage;
+  } else {
+    dropText.textContent = 'Drop a file here to send it to your phone';
+  }
+
   feed.replaceChildren();
   empty.style.display = state.feed.length ? 'none' : 'block';
 
@@ -96,6 +109,21 @@ document
   .getElementById('call-silence')
   .addEventListener('click', () => window.phonelink.callAction('silence'));
 clipboardButton.addEventListener('click', () => window.phonelink.toggleClipboard());
+// The whole popup accepts drops; without preventDefault the page would navigate to the file.
+for (const eventName of ['dragenter', 'dragover']) {
+  document.addEventListener(eventName, event => {
+    event.preventDefault();
+    drop.classList.add('over');
+  });
+}
+document.addEventListener('dragleave', () => drop.classList.remove('over'));
+document.addEventListener('drop', event => {
+  event.preventDefault();
+  drop.classList.remove('over');
+  const files = [...(event.dataTransfer?.files ?? [])];
+  if (files.length) window.phonelink.sendFiles(files);
+});
+
 toggle.addEventListener('click', () => window.phonelink.toggleConnection());
 document.getElementById('unpair').addEventListener('click', () => window.phonelink.unpairAll());
 document.getElementById('quit').addEventListener('click', () => window.phonelink.quit());
