@@ -5,10 +5,11 @@ and file transfer. No cloud, no relay — if the devices aren't on the same wifi
 shows "disconnected" and keeps retrying.
 
 ## Status
-**Phase 3 of 9 complete — the vertical slice works end to end.** Android notifications now
-mirror to macOS Notification Center over the LAN. See
-[docs/progress/PHASE-03-COMPLETE.md](docs/progress/PHASE-03-COMPLETE.md).
-Next up: Phase 4, mDNS discovery to remove the hardcoded IP.
+**Phase 4 of 9 complete.** Android notifications mirror to macOS Notification Center over the
+LAN, with mDNS discovery and a manual-address fallback. See
+[docs/progress/PHASE-04-COMPLETE.md](docs/progress/PHASE-04-COMPLETE.md) — note that the
+discovery path could not be verified on the test network, which filters multicast.
+Next up: Phase 5, pairing and encryption — **the LAN port is currently open to any device**.
 
 ```bash
 cd mac-app && npm start      # menu bar receiver

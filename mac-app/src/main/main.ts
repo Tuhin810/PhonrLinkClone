@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { BrowserWindow, Tray, app, ipcMain, screen } from 'electron';
 import { DEFAULT_PORT, Envelope, assertNever } from '@phonelink/shared';
+import { Advertiser } from './advertiser';
 import { LinkServer, type ConnectionState } from './linkServer';
 import { NotificationPresenter } from './notifications';
 import { createTrayIcon } from './trayIcon';
@@ -24,6 +25,7 @@ let tray: Tray | null = null;
 let popup: BrowserWindow | null = null;
 const presenter = new NotificationPresenter();
 const server = new LinkServer(DEFAULT_PORT);
+const advertiser = new Advertiser(DEFAULT_PORT);
 let feed: FeedItem[] = [];
 let connection: ConnectionState = 'waiting';
 
@@ -145,6 +147,7 @@ app.whenReady().then(() => {
   });
   server.on('envelope', handleEnvelope);
   server.start();
+  advertiser.start();
 
   ipcMain.handle('request-state', () => {
     pushState();
@@ -156,6 +159,7 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => undefined);
 
 app.on('before-quit', () => {
+  advertiser.stop();
   server.stop();
   presenter.dismissAll();
 });

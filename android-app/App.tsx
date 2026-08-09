@@ -6,12 +6,13 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
   useColorScheme,
 } from 'react-native';
 import type { NotificationMessage } from '@phonelink/shared';
-import { MAC_HOST, MAC_PORT } from './src/config';
+import { MAC_PORT } from './src/config';
 import { ConnectionState } from './src/net/linkClient';
 import { useNotificationMirror } from './src/useNotificationMirror';
 
@@ -55,7 +56,24 @@ function NotificationRow({ item }: { item: NotificationMessage }) {
 
 function App(): React.JSX.Element {
   const isDark = useColorScheme() === 'dark';
-  const { state, openSettings } = useNotificationMirror();
+  const { state, openSettings, saveManualHost } = useNotificationMirror();
+  const [showManual, setShowManual] = React.useState(false);
+  const [draftHost, setDraftHost] = React.useState('');
+
+  React.useEffect(() => {
+    setDraftHost(state.manualHost ?? '');
+  }, [state.manualHost]);
+
+  const targetLabel =
+    state.targetSource === 'none'
+      ? state.discoveryLikelyBlocked
+        ? 'No Mac found — this network may block discovery'
+        : 'Searching for your Mac on this network…'
+      : `${state.target}:${MAC_PORT} · ${
+          state.targetSource === 'manual'
+            ? 'manual address'
+            : state.deviceName ?? 'discovered'
+        }`;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -69,10 +87,55 @@ function App(): React.JSX.Element {
           />
           <Text style={styles.statusText}>{STATUS_LABEL[state.connection]}</Text>
         </View>
-        <Text style={styles.target}>
-          {MAC_HOST}:{MAC_PORT}
-        </Text>
+        <Text style={styles.target}>{targetLabel}</Text>
+        {state.targetSource === 'none' &&
+          state.discoveryLog.map((line, index) => (
+            <Text key={`${line}-${index}`} style={styles.diagnostic}>
+              {line}
+            </Text>
+          ))}
+        <TouchableOpacity onPress={() => setShowManual(current => !current)}>
+          <Text style={styles.link}>
+            {showManual ? 'Hide manual address' : 'Enter address manually'}
+          </Text>
+        </TouchableOpacity>
       </View>
+
+      {state.targetSource === 'none' && state.discoveryLikelyBlocked && !showManual && (
+        <TouchableOpacity style={styles.banner} onPress={() => setShowManual(true)}>
+          <Text style={styles.bannerTitle}>Discovery isn't finding your Mac</Text>
+          <Text style={styles.bannerBody}>
+            Guest and public wifi commonly block the discovery protocol. Tap to enter your
+            Mac's IP address instead — it's shown in the Mac app's menu bar popup.
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {showManual && (
+        <View style={styles.manualBox}>
+          <Text style={styles.manualHint}>
+            Some networks block the discovery protocol — guest and public wifi usually do.
+            Enter your Mac's IP address to connect anyway.
+          </Text>
+          <TextInput
+            style={styles.input}
+            value={draftHost}
+            onChangeText={setDraftHost}
+            placeholder="192.168.1.9"
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="numbers-and-punctuation"
+          />
+          <View style={styles.manualButtons}>
+            <TouchableOpacity onPress={() => saveManualHost(draftHost)}>
+              <Text style={styles.link}>Save</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => saveManualHost(null)}>
+              <Text style={styles.link}>Clear &amp; use discovery</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {!state.accessGranted && (
         <TouchableOpacity style={styles.banner} onPress={openSettings}>
@@ -114,6 +177,26 @@ const styles = StyleSheet.create({
   dot: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
   statusText: { fontSize: 15, color: '#343a40' },
   target: { fontSize: 12, color: '#868e96', marginTop: 2 },
+  link: { fontSize: 12, color: '#1c7ed6', marginTop: 6 },
+  diagnostic: { fontSize: 10, color: '#adb5bd', fontFamily: 'monospace' },
+  manualBox: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 14,
+    borderRadius: 10,
+    backgroundColor: '#ffffff',
+  },
+  manualHint: { fontSize: 12, color: '#495057', lineHeight: 17, marginBottom: 8 },
+  input: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#adb5bd',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 15,
+    color: '#212529',
+  },
+  manualButtons: { flexDirection: 'row', justifyContent: 'space-between' },
   banner: {
     marginHorizontal: 16,
     marginBottom: 12,
