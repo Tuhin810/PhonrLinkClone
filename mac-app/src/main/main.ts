@@ -126,11 +126,13 @@ async function pushState(): Promise<void> {
 }
 
 function updateTrayTitle(): void {
-  tray?.setToolTip(
+  const tooltip =
     connection === 'connected'
       ? 'PhoneLink Clone — phone connected'
-      : 'PhoneLink Clone — waiting for phone',
-  );
+      : connection === 'paused'
+        ? 'PhoneLink Clone — disconnected (paused)'
+        : 'PhoneLink Clone — waiting for phone';
+  tray?.setToolTip(tooltip);
 }
 
 function handleEnvelope(envelope: Envelope): void {
@@ -183,7 +185,7 @@ app.whenReady().then(() => {
     connection = next;
     updateTrayTitle();
     // A phone that walked away leaves no stale banners behind.
-    if (next === 'waiting') presenter.dismissAll();
+    if (next !== 'connected') presenter.dismissAll();
     void pushState();
   });
   server.on('envelope', handleEnvelope);
@@ -196,6 +198,14 @@ app.whenReady().then(() => {
   // which makes the UI awkward to iterate on.
   if (process.argv.includes('--dev')) togglePopup();
   ipcMain.handle('quit', () => app.quit());
+
+  ipcMain.handle('toggle-connection', () => {
+    if (server.isPaused()) {
+      server.resume();
+    } else {
+      server.pause();
+    }
+  });
 });
 
 // Menu bar apps stay alive with no windows open.

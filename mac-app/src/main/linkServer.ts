@@ -9,7 +9,7 @@ import {
   tryParseEnvelope,
 } from '@phonelink/shared';
 
-export type ConnectionState = 'waiting' | 'connected';
+export type ConnectionState = 'waiting' | 'connected' | 'paused';
 
 export interface LinkServerEvents {
   state: [ConnectionState];
@@ -30,6 +30,12 @@ export class LinkServer extends EventEmitter<LinkServerEvents> {
   private pingTimer: NodeJS.Timeout | null = null;
   private missedPongs = 0;
   private state: ConnectionState = 'waiting';
+  /**
+   * While paused we drop the current phone and refuse new connections. Without this a
+   * "disconnect" would last about a second: the phone's own backoff would reconnect
+   * immediately, which is not what the button means.
+   */
+  private paused = false;
 
   constructor(private readonly port: number = DEFAULT_PORT) {
     super();
@@ -60,7 +66,31 @@ export class LinkServer extends EventEmitter<LinkServerEvents> {
     return true;
   }
 
+  /** Drops the phone and refuses reconnections until [resume] is called. */
+  pause(): void {
+    if (this.paused) return;
+    this.paused = true;
+    this.clearHeartbeat();
+    this.socket?.close();
+    this.socket = null;
+    this.setState('paused');
+  }
+
+  resume(): void {
+    if (!this.paused) return;
+    this.paused = false;
+    this.setState('waiting');
+  }
+
+  isPaused(): boolean {
+    return this.paused;
+  }
+
   private adopt(socket: WebSocket): void {
+    if (this.paused) {
+      socket.close();
+      return;
+    }
     this.socket?.close();
     this.socket = socket;
     this.missedPongs = 0;
@@ -87,7 +117,7 @@ export class LinkServer extends EventEmitter<LinkServerEvents> {
       if (this.socket !== socket) return; // superseded by a newer connection
       this.socket = null;
       this.clearHeartbeat();
-      this.setState('waiting');
+      if (!this.paused) this.setState('waiting');
     });
 
     socket.on('error', () => {

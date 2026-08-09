@@ -5,6 +5,7 @@
   --line: #e5e5ea;
   --ok: #30a14e;
   --wait: #8e8e93;
+  --paused: #d97706;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -32,6 +33,7 @@ header { padding: 12px 14px; border-bottom: 1px solid var(--line); }
 .row { display: flex; align-items: center; gap: 8px; font-weight: 600; }
 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--wait); }
 .dot.connected { background: var(--ok); }
+.dot.paused { background: var(--paused); }
 .muted { color: var(--muted); font-size: 11px; margin-top: 3px; }
 
 main { flex: 1; overflow-y: auto; }
@@ -55,7 +57,12 @@ li img { width: 28px; height: 28px; border-radius: 6px; flex: none; }
 /* The QR must stay white-on-black-ink to scan; it does not follow the theme. */
 #qr { width: 180px; height: 180px; background: #fff; border-radius: 6px; padding: 6px; }
 
-footer { padding: 8px 14px; border-top: 1px solid var(--line); text-align: right; }
+footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border-top: 1px solid var(--line);
+}
 button {
   font: inherit;
   color: var(--muted);

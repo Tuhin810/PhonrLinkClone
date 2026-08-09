@@ -6,16 +6,26 @@ const pairing = document.getElementById('pairing');
 const qr = document.getElementById('qr');
 const empty = document.getElementById('empty');
 
+const toggle = document.getElementById('toggle');
+
+const STATUS_TEXT = {
+  connected: 'Phone connected',
+  waiting: 'Waiting for phone…',
+  paused: 'Disconnected',
+};
+
 function render(state) {
   const connected = state.connection === 'connected';
-  dot.className = `dot ${connected ? 'connected' : 'waiting'}`;
-  status.textContent = connected ? 'Phone connected' : 'Waiting for phone…';
+  const paused = state.connection === 'paused';
+  dot.className = `dot ${state.connection}`;
+  status.textContent = STATUS_TEXT[state.connection] ?? 'Waiting for phone…';
+  toggle.textContent = paused ? 'Allow connections' : 'Disconnect';
   address.textContent = state.addresses.length
     ? `${state.addresses.join(', ')} : ${state.port}`
     : `port ${state.port} — no LAN address`;
 
-  // The QR is setup help: once the phone is connected it is only clutter.
-  if (!connected && state.qr) {
+  // The QR is setup help: only useful while we are actually accepting a phone.
+  if (!connected && !paused && state.qr) {
     qr.src = state.qr;
     pairing.classList.add('show');
   } else {
@@ -57,4 +67,5 @@ function render(state) {
 
 window.phonelink.onState(render);
 window.phonelink.requestState();
+toggle.addEventListener('click', () => window.phonelink.toggleConnection());
 document.getElementById('quit').addEventListener('click', () => window.phonelink.quit());

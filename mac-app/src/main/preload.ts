@@ -8,5 +8,6 @@ contextBridge.exposeInMainWorld('phonelink', {
     ipcRenderer.on('state', (_event, state) => handler(state));
   },
   requestState: () => ipcRenderer.invoke('request-state'),
+  toggleConnection: () => ipcRenderer.invoke('toggle-connection'),
   quit: () => ipcRenderer.invoke('quit'),
 });
