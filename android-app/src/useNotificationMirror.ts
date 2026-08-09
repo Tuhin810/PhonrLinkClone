@@ -218,8 +218,9 @@ export function useNotificationMirror() {
     [],
   );
 
-  const { applyRemote } = useClipboardSync({
+  const { applyRemote, sendCurrentClipboard } = useClipboardSync({
     enabled: clipboardEnabled,
+    connected: connection === 'connected',
     send: sendViaClient,
     onSkippedTooLarge: useCallback(() => setClipboardSkipped(true), []),
   });
@@ -274,5 +275,6 @@ export function useNotificationMirror() {
     beginPairing,
     unpair,
     setClipboardEnabled,
+    sendCurrentClipboard,
   };
 }

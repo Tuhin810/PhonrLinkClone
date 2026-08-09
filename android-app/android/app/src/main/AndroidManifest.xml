@@ -34,6 +34,13 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
+        <!-- "Share to PhoneLink" from any app. This is the dependable phone -> Mac route,
+             since Android 10+ forbids reading the clipboard in the background. -->
+        <intent-filter>
+            <action android:name="android.intent.action.SEND" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <data android:mimeType="text/plain" />
+        </intent-filter>
       </activity>
 
       <!-- Granted manually by the user in system settings; cannot be requested at runtime.

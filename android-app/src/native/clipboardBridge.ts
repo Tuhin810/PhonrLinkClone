@@ -4,6 +4,7 @@ interface ClipboardNative {
   startListening(): void;
   stopListening(): void;
   getText(): Promise<string | null>;
+  consumeSharedText(): Promise<string | null>;
   setText(text: string): Promise<void>;
 }
 
@@ -21,6 +22,10 @@ export const ClipboardBridge = {
   },
   getText(): Promise<string | null> {
     return native?.getText() ?? Promise.resolve(null);
+  },
+  /** Text handed to us via the Android share sheet, returned once. */
+  consumeSharedText(): Promise<string | null> {
+    return native?.consumeSharedText() ?? Promise.resolve(null);
   },
   setText(text: string): Promise<void> {
     return native?.setText(text) ?? Promise.resolve();

@@ -64,6 +64,7 @@ function App(): React.JSX.Element {
     beginPairing,
     unpair,
     setClipboardEnabled,
+    sendCurrentClipboard,
   } = useNotificationMirror();
   const [showManual, setShowManual] = React.useState(false);
   const [scanning, setScanning] = React.useState(false);
@@ -188,6 +189,9 @@ function App(): React.JSX.Element {
           <Text style={styles.link}>
             Clipboard sync: {state.clipboardEnabled ? 'on' : 'off'}
           </Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => sendCurrentClipboard()}>
+          <Text style={styles.link}>Send clipboard to Mac</Text>
         </TouchableOpacity>
         {state.clipboardSkipped && (
           <Text style={styles.counterText}>Last clipboard item too large — skipped</Text>

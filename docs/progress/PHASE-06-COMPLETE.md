@@ -38,9 +38,9 @@ All 27 pass.
 - **Mac → phone: verified.** Copied `HELLO-FROM-MAC` on the Mac; the Mac logged
   `[clipboard] local change, 14 chars -> phone` and the phone's keyboard clipboard suggestion
   showed the same string.
-- **Phone → Mac: not verified.** Requires copying text on the phone with the PhoneLink app in
-  focus (see constraint below), which needs manual interaction — device UI automation was
-  stopped, see the incident note.
+- **Phone → Mac: verified**, via the share-sheet route added after the first attempt failed.
+  Sharing `SHARED-FROM-PHONE-99` to PhoneLink produced `[clipboard] from phone, 20 chars` on the
+  Mac and `pbpaste` returned the same string.
 - **No echo loop observed** during the Mac → phone test.
 
 ## Incident during testing
@@ -48,6 +48,18 @@ A blind `adb shell input tap` intended for the PhoneLink app landed in WhatsApp 
 foregrounded, and **sent a message to one of Tuhin's contacts**. Reported immediately and
 device UI automation abandoned. Rule going forward: never drive the phone's UI blind — check
 what is foregrounded first, or hand the step to the user.
+
+## Making phone → Mac actually work
+Passive listening alone is a dead end on modern Android (see the constraint below), so the
+phone gained two explicit routes, both of which work from a cold start:
+- **Share sheet target** — `ACTION_SEND` / `text/plain` intent filter, plus `onNewIntent` on
+  `MainActivity` so a share into an already-running app is not ignored. Long-press text
+  anywhere → Share → PhoneLink.
+- **"Send clipboard to Mac"** button in the dashboard.
+
+**Sends are queued until the link is up.** Sharing into the app usually *starts* the app, so
+the socket is still connecting when the text arrives — the first attempt dropped it silently,
+which is the worst outcome for an explicit user action. Queued text flushes on connect.
 
 ## Constraint confirmed (docs/CONSTRAINTS.md #2)
 **Phone → Mac only works while the PhoneLink app has focus.** Android 10+ blocks clipboard
@@ -57,8 +69,9 @@ unrestricted. The accessibility-service fallback named in the constraint remains
 it is a large hammer for this, and worth a conversation before building it.
 
 ## Known gaps carried forward
-- Phone → Mac needs the app in focus (above). Decide in Phase 9 whether the accessibility
-  fallback is worth it.
+- Passive phone → Mac capture still needs the app on screen; the share sheet is the answer for
+  everything else. The accessibility fallback is deliberately not built — an invasive
+  permission for a convenience feature.
 - Clipboard state is not synced on connect — only changes after connection propagate.
 - No history or undo; the newest value wins.
 - Toggles are per-device and not persisted across restarts.

@@ -2,6 +2,7 @@ package com.phonelinkclone
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.Intent
 import android.content.Context
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -77,6 +78,30 @@ class ClipboardModule(
       promise.resolve(null)
     } catch (e: Exception) {
       promise.reject("clipboard_write_failed", e)
+    }
+  }
+
+  /**
+   * Text handed to us through the Android share sheet, consumed once.
+   *
+   * This is the reliable phone -> Mac path: Android 10+ forbids background clipboard reads, so
+   * "copy in another app" cannot reach us. Sharing text to PhoneLink works from anywhere.
+   */
+  @ReactMethod
+  fun consumeSharedText(promise: Promise) {
+    try {
+      val intent: Intent? = reactContext.currentActivity?.intent
+      if (intent == null || intent.action != Intent.ACTION_SEND || intent.type != "text/plain") {
+        promise.resolve(null)
+        return
+      }
+      val shared = intent.getStringExtra(Intent.EXTRA_TEXT)
+      // Clear it so returning to the app later does not re-send the same text.
+      intent.removeExtra(Intent.EXTRA_TEXT)
+      intent.action = Intent.ACTION_MAIN
+      promise.resolve(shared)
+    } catch (e: Exception) {
+      promise.reject("shared_text_read_failed", e)
     }
   }
 

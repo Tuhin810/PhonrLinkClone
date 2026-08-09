@@ -9,10 +9,17 @@ Windows Phone Link routes call audio via proprietary OEM/Bluetooth integration. 
 scrutinized by Google Play. Phase 7 delivers alerts only; the answer action stays on the phone.
 
 ## 2. Android 10+ background clipboard reads are restricted
-`ClipboardManager` reads only work when the app has focus or is the default IME. Mitigation
-order for Phase 6:
-1. Foreground service (implemented first)
-2. Accessibility service fallback (only if 1 proves insufficient)
+`ClipboardManager` reads only work when the app has focus or is the default IME. **Confirmed on
+device in Phase 6**: the foreground service keeps the process alive but grants no read access,
+so copying in another app cannot reach us passively. Writing is unrestricted, so Mac -> phone
+is unaffected.
+
+What is implemented instead of fighting this:
+1. Passive listener — works while the PhoneLink app is on screen.
+2. **Share sheet target** ("Share -> PhoneLink") — the dependable route, works from any app.
+3. "Send clipboard to Mac" button in the app.
+4. Accessibility service — deliberately NOT built. It is a heavy, invasive permission for a
+   convenience feature; revisit only if the share-sheet route proves inadequate.
 
 Samsung / Xiaomi / OnePlus add further battery restrictions — Phase 9 adds per-OEM battery
 optimization whitelist instructions in-app.
