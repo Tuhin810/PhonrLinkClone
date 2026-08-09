@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
+import android.util.Log
 
 /**
  * Keeps the process alive so the WebSocket connection and the notification listener survive
@@ -16,6 +17,7 @@ import android.os.IBinder
 class LinkForegroundService : Service() {
 
   companion object {
+    private const val TAG = "PhoneLinkFgs"
     private const val CHANNEL_ID = "phonelink_status"
     private const val NOTIFICATION_ID = 1
     const val ACTION_START = "com.phonelinkclone.START"
@@ -39,7 +41,16 @@ class LinkForegroundService : Service() {
       return START_NOT_STICKY
     }
     createChannel()
-    startForeground(NOTIFICATION_ID, buildNotification())
+    try {
+      startForeground(NOTIFICATION_ID, buildNotification())
+    } catch (e: Exception) {
+      // OEM policy or a missing companion permission can reject the foreground promotion.
+      // Losing the lifetime anchor is bad, but taking the whole app down with it is worse:
+      // mirroring still works while the app is in the foreground.
+      Log.e(TAG, "foreground promotion rejected; running without it", e)
+      stopSelf()
+      return START_NOT_STICKY
+    }
     // Restart if the system kills us; the connection should come back on its own.
     return START_STICKY
   }

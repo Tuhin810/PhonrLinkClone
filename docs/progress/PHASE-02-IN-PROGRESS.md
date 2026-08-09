@@ -43,6 +43,15 @@ phase ✅ or start Phase 3 until the Exit check passes and this file is replaced
 - **Dropped-while-offline messages are counted and shown, not queued.** Silent loss would be
   worse; queuing is a Phase 9 concern.
 
+## Bugs found on device and fixed
+- **Crash on launch: `SecurityException` starting the foreground service.** On targetSdk 36,
+  the `connectedDevice` FGS type also requires at least one transport permission from a set
+  (Bluetooth / wifi-state / multicast / NFC / UWB). None were declared, so `startForeground()`
+  threw and took the app down. Fixed by declaring `CHANGE_WIFI_MULTICAST_STATE` — the one we
+  genuinely need, since Phase 4 mDNS depends on it — and by wrapping `startForeground()` in a
+  try/catch so an OEM rejection degrades instead of crashing the app.
+  Tested on: Samsung (RZCW8063A3P), Android 16 / API 36.
+
 ## Known gaps carried forward
 - **No Mac receiver yet** — that is Phase 3. Until then the Exit check needs a raw WS listener.
 - **Cleartext WS in release builds.** `usesCleartextTraffic` is false for release, so a release
