@@ -30,6 +30,26 @@ class NotificationRelayService : NotificationListenerService() {
 
     /** Titles that are a label rather than the caller's name. */
     private val LABEL_TITLES = listOf("Incoming call", "Ongoing call", "Calling")
+
+    /** Same app, same title and text, under a different key this soon: one message, twice. */
+    private const val DUPLICATE_WINDOW_MS = 5_000L
+    private const val MAX_TRACKED = 200
+  }
+
+  /**
+   * Last title+text mirrored per notification key. Android calls onNotificationPosted again for
+   * every update to a notification — re-sorts, read-state flips, progress ticks — and a re-post
+   * whose content has not changed must not reach the Mac as a second notification.
+   */
+  private val lastContentByKey = object : LinkedHashMap<String, String>(64, 0.75f, true) {
+    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?) =
+      size > MAX_TRACKED
+  }
+
+  /** When each package+content was last mirrored, for apps that repost under a new key. */
+  private val lastSeenContent = object : LinkedHashMap<String, Long>(64, 0.75f, true) {
+    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Long>?) =
+      size > MAX_TRACKED
   }
 
   override fun onListenerConnected() {
@@ -59,6 +79,19 @@ class NotificationRelayService : NotificationListenerService() {
     // A notification with neither title nor body carries nothing worth mirroring.
     if (title.isBlank() && text.isBlank()) return
 
+    // Bundled apps (WhatsApp, Gmail, ...) post a group summary alongside each real
+    // notification; mirroring both shows every message twice.
+    if ((sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0) return
+
+    val content = "$title\u0000$text"
+    if (lastContentByKey[sbn.key] == content) return
+    val now = System.currentTimeMillis()
+    val contentKey = "${sbn.packageName}\u0000$content"
+    val seenAt = lastSeenContent[contentKey]
+    lastContentByKey[sbn.key] = content
+    lastSeenContent[contentKey] = now
+    if (seenAt != null && now - seenAt < DUPLICATE_WINDOW_MS) return
+
     NotificationEventBus.emitPosted(
       NotificationEventBus.PostedNotification(
         key = sbn.key,
@@ -73,6 +106,8 @@ class NotificationRelayService : NotificationListenerService() {
 
   override fun onNotificationRemoved(sbn: StatusBarNotification) {
     if (sbn.packageName == packageName) return
+    // A later notification under the same key is new content, not a repost.
+    lastContentByKey.remove(sbn.key)
     NotificationEventBus.emitRemoved(sbn.key)
   }
 

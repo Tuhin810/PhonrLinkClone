@@ -18,6 +18,8 @@ const transferPct = document.getElementById('transfer-pct');
 const transferBar = document.getElementById('transfer-bar');
 const call = document.getElementById('call');
 const callCaller = document.getElementById('call-caller');
+const callHint = document.getElementById('call-hint');
+const callDecline = document.getElementById('call-decline');
 const menu = document.getElementById('menu');
 const pages = document.getElementById('pages');
 const homeTab = document.getElementById('home-tab');
@@ -35,14 +37,82 @@ const clipsList = document.getElementById('clips');
 const clipsEmpty = document.getElementById('clips-empty');
 const clipsClear = document.getElementById('clips-clear');
 const dropzone = document.getElementById('dropzone');
-const filesProgress = document.getElementById('files-progress');
 const filesBar = document.getElementById('files-bar');
-const filesStatus = document.getElementById('files-status');
+const ringFill = document.getElementById('ring-fill');
+const ringPct = document.getElementById('ring-pct');
+const progressTitle = document.getElementById('dz-progress-title');
+const progressText = document.getElementById('dz-progress-text');
 
 /** Pages only exist while connected; until then drops fall back to the full overlay. */
 let isConnected = false;
 
+/*
+ * Motion. GSAP-style staggered entrances on the Web Animations API, so there is no library
+ * to load past the popup's script-src 'self' policy. Everything is skipped under Reduce Motion.
+ */
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const EASE_OUT_EXPO = 'cubic-bezier(0.16, 1, 0.3, 1)';
+const EASE_OUT_BACK = 'cubic-bezier(0.34, 1.56, 0.64, 1)';
+/** Enough to fill the visible area; anything below the fold appears without a delay queue. */
+const MAX_STAGGERED = 9;
+
+/** Rises and fades elements in one after another. `fill: backwards` hides them until their turn. */
+function arrive(elements, { y = 16, scale = 0.98, delay = 0, stagger = 45, duration = 560 } = {}) {
+  if (reduceMotion.matches) return;
+  elements
+    .filter(element => element && element.offsetParent !== null)
+    .slice(0, MAX_STAGGERED)
+    .forEach((element, index) =>
+      element.animate(
+        [
+          { opacity: 0, transform: `translateY(${y}px) scale(${scale})` },
+          { opacity: 1, transform: 'none' },
+        ],
+        { duration, delay: delay + index * stagger, easing: EASE_OUT_EXPO, fill: 'backwards' },
+      ),
+    );
+}
+
+const PAGE_ROOTS = {
+  home: '.feed-section',
+  files: '.files-page',
+  clips: '.clips-page',
+  contacts: '.contacts-page',
+};
+
+/** The pieces of a page that enter in sequence: heading, tools, then its cards or rows. */
+function pageParts(page) {
+  const root = document.querySelector(PAGE_ROOTS[page]);
+  if (!root) return [];
+  return [
+    root.querySelector('.section-head'),
+    root.querySelector('.contacts-tools'),
+    root.querySelector('.dropzone'),
+    ...root.querySelectorAll('.dz-idle > *'),
+    ...root.querySelectorAll('main > ul > li'),
+    ...root.querySelectorAll('main > .empty'),
+  ];
+}
+
+/** Starts while the track is still sliding, so content settles just as the page does. */
+function arrivePage(page, delay = 110) {
+  arrive(pageParts(page), { delay });
+}
+
+/** A quick squash-and-pop on the tapped dock icon. */
+function bounce(button) {
+  if (reduceMotion.matches) return;
+  button.querySelector('svg')?.animate(
+    [{ transform: 'scale(0.78)' }, { transform: 'scale(1)' }],
+    { duration: 420, easing: EASE_OUT_BACK },
+  );
+}
+
+let currentPage = 'home';
+
 function showPage(page) {
+  const changed = page !== currentPage;
+  currentPage = page;
   pages.classList.toggle('files', page === 'files');
   pages.classList.toggle('clips', page === 'clips');
   pages.classList.toggle('contacts', page === 'contacts');
@@ -50,7 +120,34 @@ function showPage(page) {
   filesTab.classList.toggle('active', page === 'files');
   clipsTab.classList.toggle('active', page === 'clips');
   contactsTab.classList.toggle('active', page === 'contacts');
+  // Drag-over calls this on every mouse move; only a real page change gets the entrance.
+  if (changed) arrivePage(page);
 }
+
+/** Popup opened: header settles, the current page cascades in, the dock springs up. */
+function arrivePopup() {
+  if (reduceMotion.matches) return;
+  arrive([...document.querySelectorAll('header .avatar, header .device-text, header .menu-wrap')], {
+    y: 10,
+    stagger: 50,
+  });
+  if (isConnected) arrivePage(currentPage, 140);
+  else arrive([...document.querySelectorAll('.pairing, .paused-card')], { delay: 120 });
+  const dock = document.querySelector('.dock');
+  if (dock && dock.offsetParent !== null) {
+    dock.animate(
+      [
+        { opacity: 0, transform: 'translateX(-50%) translateY(36px) scale(0.92)' },
+        { opacity: 1, transform: 'translateX(-50%)' },
+      ],
+      { duration: 620, delay: 180, easing: EASE_OUT_BACK, fill: 'backwards' },
+    );
+  }
+}
+window.addEventListener('focus', arrivePopup);
+
+/** Notification ids already on screen, so only genuinely new ones drop in. */
+let seenFeedIds = null;
 
 const ICONS = {
   mac: '<svg viewBox="0 0 24 24"><rect x="4" y="4.5" width="16" height="11.5" rx="2.5" /><path d="M2 19.5h20" /></svg>',
@@ -371,6 +468,72 @@ function renderPhoneAction(action) {
   phoneActionLine.classList.add('show', action.status);
 }
 
+/*
+ * Transfer display. A finished transfer's message is shown for a few seconds, then
+ * dismissed client-side so the drop zone comes back on its own.
+ */
+const RING_CIRCUMFERENCE = 326.7;
+let lastTransfer = null;
+let dismissedMessage = null;
+let dismissTimer = null;
+
+function transferView(state) {
+  if (state.transfer) {
+    const { direction, fileName, done, total } = state.transfer;
+    lastTransfer = state.transfer;
+    return {
+      mode: 'busy',
+      pct: total ? Math.round((done / total) * 100) : 0,
+      title: direction === 'sending' ? 'Sending to your phone…' : 'Receiving from your phone…',
+      text: fileName,
+    };
+  }
+  const message = state.transferMessage;
+  if (!message || message === dismissedMessage) return { mode: 'idle', pct: 0 };
+  const failed = state.transferStatus === 'error';
+  if (!dismissTimer) {
+    dismissTimer = setTimeout(
+      () => {
+        dismissedMessage = message;
+        dismissTimer = null;
+        if (lastState) render(lastState);
+      },
+      failed ? 6000 : 3500,
+    );
+  }
+  if (failed) return { mode: 'failed', pct: 100, title: 'Transfer failed', text: message };
+  const received = lastTransfer?.direction === 'receiving';
+  return {
+    mode: 'done',
+    pct: 100,
+    title: received ? 'Received' : 'Sent to your phone',
+    text: lastTransfer?.fileName ?? message,
+    message,
+  };
+}
+
+function renderTransfer(state) {
+  const view = transferView(state);
+
+  // Files page: the drop zone itself turns into the progress card.
+  dropzone.classList.remove('busy', 'done', 'failed');
+  if (view.mode !== 'idle') dropzone.classList.add(view.mode);
+  ringFill.style.strokeDashoffset = String(RING_CIRCUMFERENCE * (1 - view.pct / 100));
+  ringPct.textContent = `${view.pct}%`;
+  progressTitle.textContent = view.title ?? '';
+  progressText.textContent = view.text ?? '';
+  filesBar.style.width = `${view.pct}%`;
+  filesBar.classList.toggle('striped', view.mode === 'busy');
+
+  // Notifications page: the compact floating card.
+  transfer.classList.toggle('show', view.mode !== 'idle');
+  transferText.textContent =
+    view.mode === 'busy' ? `${state.transfer.direction === 'sending' ? 'Sending' : 'Receiving'} ${view.text}` : view.message ?? view.text ?? '';
+  transferPct.textContent = view.mode === 'busy' ? `${view.pct}%` : '';
+  transferBar.style.width = `${view.pct}%`;
+  transferBar.classList.toggle('striped', view.mode === 'busy');
+}
+
 function render(state) {
   lastState = state;
   renderContacts(state);
@@ -393,10 +556,16 @@ function render(state) {
   renderClips(state.clipboardHistory ?? []);
 
   if (state.activeCall) {
-    const { callerName, callerNumber } = state.activeCall;
+    const { callerName, callerNumber, answered } = state.activeCall;
     // Show whichever pieces we actually have; no empty separators.
-    callCaller.textContent =
-      [callerName, callerNumber].filter(Boolean).join(' · ') || 'Unknown caller';
+    const caller = [callerName, callerNumber].filter(Boolean).join(' · ') || 'Unknown caller';
+    callCaller.textContent = answered ? `On a call · ${caller}` : caller;
+    // Once answered, the only useful action left is hanging up — on the phone, audio and all.
+    callHint.textContent = answered
+      ? 'Talk on your phone — call audio cannot reach the Mac'
+      : 'Answer here, then talk on your phone';
+    callDecline.textContent = answered ? 'End call' : 'Decline';
+    call.classList.toggle('answered', Boolean(answered));
     call.classList.add('show');
   } else {
     call.classList.remove('show');
@@ -414,36 +583,17 @@ function render(state) {
   if (state.qr) qr.src = state.qr;
   qrPlate.classList.toggle('hidden', !state.qr);
 
-  // A running transfer shows a progress bar; a finished one leaves its message briefly.
-  if (state.transfer) {
-    const { direction, fileName, done, total } = state.transfer;
-    const verb = direction === 'sending' ? 'Sending' : 'Receiving';
-    const pct = total ? Math.round((done / total) * 100) : 0;
-    transferText.textContent = `${verb} ${fileName}`;
-    transferPct.textContent = `${pct}%`;
-    transferBar.style.width = `${pct}%`;
-    transfer.classList.add('show');
-  } else if (state.transferMessage) {
-    transferText.textContent = state.transferMessage;
-    transferPct.textContent = '';
-    transferBar.style.width = '100%';
-    transfer.classList.add('show');
-  } else {
-    transfer.classList.remove('show');
-  }
-  // The files page carries the same progress inline, under its drop zone.
-  filesProgress.classList.toggle('show', transfer.classList.contains('show'));
-  filesStatus.textContent = [transferText.textContent, transferPct.textContent]
-    .filter(Boolean)
-    .join(' — ');
-  filesBar.style.width = transferBar.style.width;
+  renderTransfer(state);
 
   feed.replaceChildren();
   empty.style.display = state.feed.length ? 'none' : 'block';
   count.textContent = state.feed.length ? String(state.feed.length) : '';
 
+  const firstFeedRender = seenFeedIds === null;
+  const newFeedItems = [];
   for (const item of state.feed) {
     const li = document.createElement('li');
+    if (!firstFeedRender && !seenFeedIds.has(item.id)) newFeedItems.push(li);
 
     const icon = document.createElement('div');
     icon.className = 'feed-icon';
@@ -484,22 +634,41 @@ function render(state) {
     li.append(icon, body);
     feed.append(li);
   }
+  seenFeedIds = new Set(state.feed.map(item => item.id));
+  // A fresh notification drops in from above with a brief tint, then settles.
+  if (!reduceMotion.matches) {
+    for (const li of newFeedItems) {
+      li.animate(
+        [
+          { opacity: 0, transform: 'translateY(-18px) scale(0.96)', backgroundColor: '#eaf1fd' },
+          { opacity: 1, transform: 'none', backgroundColor: '#eaf1fd', offset: 0.55 },
+          { backgroundColor: 'rgba(234, 241, 253, 0)' },
+        ],
+        { duration: 900, easing: EASE_OUT_EXPO },
+      );
+    }
+  }
 }
 
 window.phonelink.onState(render);
 window.phonelink.requestState();
 document
-  .getElementById('call-decline')
-  .addEventListener('click', () => window.phonelink.callAction('decline'));
+  .getElementById('call-answer')
+  .addEventListener('click', () => window.phonelink.callAction('answer'));
+callDecline.addEventListener('click', () => window.phonelink.callAction('decline'));
 document
   .getElementById('call-silence')
   .addEventListener('click', () => window.phonelink.callAction('silence'));
 document
   .getElementById('mirror')
   .addEventListener('click', () => window.phonelink.openMirror());
-clipsTab.addEventListener('click', () => showPage('clips'));
+clipsTab.addEventListener('click', () => {
+  bounce(clipsTab);
+  showPage('clips');
+});
 clipsClear.addEventListener('click', () => window.phonelink.clearClips());
 contactsTab.addEventListener('click', () => {
+  bounce(contactsTab);
   showPage('contacts');
   // Retry a failed or empty load when the page is opened; a loaded list is reused as-is.
   if (lastState && !lastState.contactsLoading && !lastState.contacts?.length) {
@@ -511,8 +680,14 @@ contactsSearch.addEventListener('input', () => {
   if (lastState) renderContacts(lastState);
 });
 
-homeTab.addEventListener('click', () => showPage('home'));
-filesTab.addEventListener('click', () => showPage('files'));
+homeTab.addEventListener('click', () => {
+  bounce(homeTab);
+  showPage('home');
+});
+filesTab.addEventListener('click', () => {
+  bounce(filesTab);
+  showPage('files');
+});
 document.getElementById('choose-file').addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', () => {
   const files = [...(fileInput.files ?? [])];

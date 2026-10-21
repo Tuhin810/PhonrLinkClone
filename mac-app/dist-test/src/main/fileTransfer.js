@@ -81,6 +81,7 @@ class FileTransfers extends node_events_1.EventEmitter {
                 await waitFor(isDrained);
             }
             dispatch({ type: 'file_complete', fileId });
+            this.emit('sent', fileName);
         }
         finally {
             await handle.close();

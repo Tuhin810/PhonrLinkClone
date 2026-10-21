@@ -6,3 +6,5 @@ build/
 android-app/android/.gradle/
 android-app/android/app/build/
 mac-app/out/
+# Built installers (DMG, APK) for sharing; rebuilt by the package scripts.
+release/

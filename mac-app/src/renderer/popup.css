@@ -289,7 +289,8 @@ header {
 .call-body { min-width: 0; }
 .call-title { margin: 0; font-size: 15px; font-weight: 700; }
 .call-hint { margin: 2px 0 0; font-size: 11px; color: #4b5363; }
-.call-actions { display: flex; gap: 8px; margin-top: 10px; }
+.call-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.call-actions .pill { padding: 6px 11px; font-size: 12px; }
 .pill {
   padding: 7px 16px;
   border-radius: 999px;
@@ -297,6 +298,9 @@ header {
   font-weight: 600;
 }
 .pill.danger { background: var(--warn); color: #fff; }
+.pill.answer { background: var(--ok); color: #fff; }
+.call.answered .pill.answer,
+.call.answered #call-silence { display: none; }
 
 /* ── Feed ───────────────────────────────────────────── */
 
@@ -460,10 +464,76 @@ ul:empty { display: none; }
 .dz-or::before,
 .dz-or::after { content: ''; width: 46px; height: 1px; background: #d3dbe8; }
 
-.files-progress { display: none; padding: 12px 14px; border-radius: 18px; background: var(--soft); }
-.files-progress.show { display: block; }
-.files-progress .bar { margin-top: 0; }
-.files-status { margin: 8px 0 0; font-size: 12px; font-weight: 600; text-align: center; }
+.dz-idle,
+.dz-progress { display: flex; flex-direction: column; align-items: center; width: 100%; }
+.dz-progress { display: none; }
+.dropzone.busy .dz-idle,
+.dropzone.done .dz-idle,
+.dropzone.failed .dz-idle { display: none; }
+.dropzone.busy .dz-progress,
+.dropzone.done .dz-progress,
+.dropzone.failed .dz-progress { display: flex; }
+.dropzone.busy,
+.dropzone.done,
+.dropzone.failed { border-style: solid; border-color: transparent; }
+.dropzone.done { background: linear-gradient(165deg, #e3f6e8 0%, #f6fcf7 100%); }
+.dropzone.failed { background: linear-gradient(165deg, #fdeaea 0%, #fff8f8 100%); }
+
+/* Progress ring: r=52, so the circumference (stroke-dasharray) is 2π·52 ≈ 326.7. */
+.ring { position: relative; width: 132px; height: 132px; }
+.ring-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  stroke-width: 9;
+}
+.ring-track { stroke: #d5e1f4; }
+.ring-fill {
+  stroke: var(--accent-strong);
+  stroke-dasharray: 326.7;
+  stroke-dashoffset: 326.7;
+  transition: stroke-dashoffset 0.35s ease, stroke 0.3s;
+}
+.dropzone.done .ring-fill { stroke: var(--ok); }
+.dropzone.failed .ring-fill { stroke: var(--warn); }
+.dropzone.done .ring-track { stroke: #cdebd6; }
+.dropzone.failed .ring-track { stroke: #f6d0d0; }
+/* While sending, a soft halo pulses out of the ring so a slow chunk never looks stuck. */
+.dropzone.busy .ring::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  animation: halo 1.6s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes halo {
+  from { transform: scale(0.94); opacity: 0.7; }
+  to { transform: scale(1.14); opacity: 0; }
+}
+.ring-center { position: absolute; inset: 0; display: grid; place-items: center; }
+#ring-pct { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.ring-check,
+.ring-x { display: none; width: 46px; height: 46px; stroke-width: 2.4; }
+.dropzone.done #ring-pct,
+.dropzone.failed #ring-pct { display: none; }
+.dropzone.done .ring-check { display: block; color: var(--ok); animation: pop 0.4s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.dropzone.failed .ring-x { display: block; color: var(--warn); animation: pop 0.4s cubic-bezier(0.3, 1.6, 0.5, 1); }
+@keyframes pop {
+  from { transform: scale(0.4); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.dz-progress .dz-title { margin-top: 16px; }
+.dz-progress .dz-text {
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.progress-bar { width: 82%; height: 8px; margin-top: 16px; border-radius: 4px; background: #d5e1f4; }
+.dropzone.done .progress-bar,
+.dropzone.failed .progress-bar { display: none; }
 
 /* ── Clipboard page ─────────────────────────────────── */
 
@@ -672,7 +742,18 @@ ul:empty { display: none; }
 #transfer-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #transfer-pct { color: var(--muted); }
 .bar { height: 6px; margin-top: 8px; border-radius: 3px; background: var(--line); overflow: hidden; }
-.bar-fill { height: 100%; width: 0; border-radius: 3px; background: var(--accent-strong); transition: width 0.2s; }
+.bar-fill { height: 100%; width: 0; border-radius: inherit; background: var(--accent-strong); transition: width 0.3s ease; }
+/* Moving diagonal stripes while bytes are flowing. */
+.bar-fill.striped {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.35) 0 6px,
+    transparent 6px 12px
+  );
+  background-size: 17px 17px;
+  animation: stripes 0.6s linear infinite;
+}
+@keyframes stripes { to { background-position: 17px 0; } }
 
 /* ── Drop overlay ──────────────────────────────────── */
 

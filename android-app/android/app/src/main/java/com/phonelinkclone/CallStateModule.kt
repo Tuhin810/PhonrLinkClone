@@ -76,6 +76,35 @@ class CallStateModule(
   }
 
   /**
+   * Picks up the ringing call. Needs `ANSWER_PHONE_CALLS`, like [declineCall].
+   *
+   * The conversation happens on the phone — its earpiece, speaker or connected earbuds. The
+   * Mac cannot carry call audio (docs/CONSTRAINTS.md #1), and its button says so.
+   */
+  @ReactMethod
+  fun answerCall(promise: Promise) {
+    val granted = ContextCompat.checkSelfPermission(
+      reactContext,
+      Manifest.permission.ANSWER_PHONE_CALLS,
+    ) == PackageManager.PERMISSION_GRANTED
+    if (!granted) {
+      promise.reject("permission_denied", "ANSWER_PHONE_CALLS has not been granted")
+      return
+    }
+    try {
+      val telecom =
+        reactContext.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
+      // Deprecated in favour of InCallService, which only the default dialer can be; still the
+      // supported route for a companion app holding ANSWER_PHONE_CALLS.
+      @Suppress("MissingPermission", "DEPRECATION")
+      telecom.acceptRingingCall()
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("answer_failed", e)
+    }
+  }
+
+  /**
    * Silences the ringer without touching the call.
    *
    * `TelecomManager.silenceRinger()` is the clean route but is restricted to the default dialer

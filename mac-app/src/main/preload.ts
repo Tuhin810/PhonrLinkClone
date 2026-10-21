@@ -17,7 +17,8 @@ contextBridge.exposeInMainWorld('phonelink', {
   call: (number: string, name: string) => ipcRenderer.invoke('phone-call', number, name),
   text: (number: string, body: string, name: string) =>
     ipcRenderer.invoke('phone-text', number, body, name),
-  callAction: (action: 'decline' | 'silence') => ipcRenderer.invoke('call-action', action),
+  callAction: (action: 'answer' | 'decline' | 'silence') =>
+    ipcRenderer.invoke('call-action', action),
   /**
    * Dropped files. The renderer has no filesystem access, so paths are resolved here via
    * webUtils — `File.path` was removed in Electron 32.

@@ -110,6 +110,11 @@ describe('envelope validation', () => {
     assert.equal(envelope.type, 'sms_send');
   });
 
+  it('accepts answering a call, and nothing beyond the known call actions', () => {
+    assert.equal(parseEnvelope('{"type":"call_action","action":"answer"}').type, 'call_action');
+    assert.equal(tryParseEnvelope('{"type":"call_action","action":"transfer"}'), null);
+  });
+
   it('requires a boolean outcome on a phone action result', () => {
     assert.equal(tryParseEnvelope('{"type":"phone_action_result","id":"1","ok":"yes"}'), null);
   });

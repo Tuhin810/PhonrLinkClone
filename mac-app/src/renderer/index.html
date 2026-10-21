@@ -76,8 +76,9 @@
         </div>
         <div class="call-body">
           <p class="call-title" id="call-caller"></p>
-          <p class="call-hint">Answer on your phone — audio stays there</p>
+          <p id="call-hint" class="call-hint">Answer here, then talk on your phone</p>
           <div class="call-actions">
+            <button id="call-answer" class="pill answer">Answer</button>
             <button id="call-decline" class="pill danger">Decline</button>
             <button id="call-silence" class="pill">Silence</button>
           </div>
@@ -109,18 +110,33 @@
               <span>Send to phone</span>
             </div>
             <div class="files-body">
+              <!-- idle: drop target; busy / done / failed: the same card shows the transfer. -->
               <div id="dropzone" class="dropzone">
-                <div class="dz-icon">
-                  <svg viewBox="0 0 24 24"><path d="M12 16V5" /><path d="m7 9.5 5-5 5 5" /><path d="M5 19.5h14" /></svg>
+                <div class="dz-idle">
+                  <div class="dz-icon">
+                    <svg viewBox="0 0 24 24"><path d="M12 16V5" /><path d="m7 9.5 5-5 5 5" /><path d="M5 19.5h14" /></svg>
+                  </div>
+                  <p class="dz-title">Drag &amp; drop files here</p>
+                  <p class="dz-text">They're saved to Downloads on your phone</p>
+                  <div class="dz-or"><span>or</span></div>
+                  <button id="choose-file" class="primary">Choose files</button>
                 </div>
-                <p class="dz-title">Drag &amp; drop files here</p>
-                <p class="dz-text">They're saved to Downloads on your phone</p>
-                <div class="dz-or"><span>or</span></div>
-                <button id="choose-file" class="primary">Choose files</button>
-              </div>
-              <div id="files-progress" class="files-progress">
-                <div class="bar"><div id="files-bar" class="bar-fill"></div></div>
-                <p id="files-status" class="files-status"></p>
+                <div class="dz-progress">
+                  <div class="ring">
+                    <svg class="ring-svg" viewBox="0 0 120 120">
+                      <circle class="ring-track" cx="60" cy="60" r="52" />
+                      <circle id="ring-fill" class="ring-fill" cx="60" cy="60" r="52" />
+                    </svg>
+                    <div class="ring-center">
+                      <span id="ring-pct">0%</span>
+                      <svg class="ring-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>
+                      <svg class="ring-x" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7 7 17" /></svg>
+                    </div>
+                  </div>
+                  <p id="dz-progress-title" class="dz-title"></p>
+                  <p id="dz-progress-text" class="dz-text"></p>
+                  <div class="bar progress-bar"><div id="files-bar" class="bar-fill"></div></div>
+                </div>
               </div>
             </div>
           </section>

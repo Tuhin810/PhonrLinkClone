@@ -85,8 +85,8 @@ export function validateEnvelope(value: unknown): Envelope {
 
     case 'call_action': {
       const action = str(o, 'action');
-      if (action !== 'decline' && action !== 'silence') {
-        throw new ProtocolError('"action" must be "decline" or "silence"');
+      if (action !== 'answer' && action !== 'decline' && action !== 'silence') {
+        throw new ProtocolError('"action" must be "answer", "decline" or "silence"');
       }
       return { type, action };
     }

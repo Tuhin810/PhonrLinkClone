@@ -41,7 +41,7 @@ export interface MirrorState {
   paired: PairedMac | null;
   /** False when READ_PHONE_STATE was declined; call alerts silently do nothing without it. */
   callPermission: boolean;
-  /** Why the last remote decline/silence failed, if it did. */
+  /** Why the last remote answer/decline/silence failed, if it did. */
   callActionError: string | null;
   mirroring: boolean;
   inputAvailable: boolean;
@@ -167,7 +167,9 @@ export function useNotificationMirror() {
 
     const posted = NotificationBridge.onPosted(payload => {
       const envelope: NotificationMessage = { type: 'notification', ...payload };
-      setFeed(current => [envelope, ...current].slice(0, FEED_LIMIT));
+      setFeed(current =>
+        [envelope, ...current.filter(item => item.id !== envelope.id)].slice(0, FEED_LIMIT),
+      );
       if (clientRef.current?.send(envelope)) {
         setSentCount(n => n + 1);
       } else {
@@ -252,9 +254,11 @@ export function useNotificationMirror() {
           // Failures are reported rather than swallowed: a decline that silently does nothing
           // is worse than one that says it could not.
           const request =
-            envelope.action === 'decline'
-              ? CallState.declineCall()
-              : CallState.silenceRinger();
+            envelope.action === 'answer'
+              ? CallState.answerCall()
+              : envelope.action === 'decline'
+                ? CallState.declineCall()
+                : CallState.silenceRinger();
           request.catch((error: Error) => setCallActionError(error.message));
           return;
         }

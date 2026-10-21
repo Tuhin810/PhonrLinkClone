@@ -75,6 +75,10 @@ const src_1 = require("../src");
         const envelope = (0, src_1.parseEnvelope)('{"type":"sms_send","id":"1","number":"123","body":"hi"}');
         strict_1.default.equal(envelope.type, 'sms_send');
     });
+    (0, node_test_1.it)('accepts answering a call, and nothing beyond the known call actions', () => {
+        strict_1.default.equal((0, src_1.parseEnvelope)('{"type":"call_action","action":"answer"}').type, 'call_action');
+        strict_1.default.equal((0, src_1.tryParseEnvelope)('{"type":"call_action","action":"transfer"}'), null);
+    });
     (0, node_test_1.it)('requires a boolean outcome on a phone action result', () => {
         strict_1.default.equal((0, src_1.tryParseEnvelope)('{"type":"phone_action_result","id":"1","ok":"yes"}'), null);
     });

@@ -61,10 +61,13 @@ let phoneAction: {
 /** Clips seen in either direction, for the popup's clipboard page. Memory only. */
 const clipboardHistory = new ClipboardHistory();
 /** Currently ringing call, shown as an in-app banner alongside the native notification. */
-let activeCall: { callerName: string | null; callerNumber: string } | null = null;
+let activeCall: { callerName: string | null; callerNumber: string; answered?: boolean } | null =
+  null;
 const transfers = new FileTransfers();
 let transferProgress: TransferProgress | null = null;
 let transferMessage: string | null = null;
+/** Whether transferMessage reports a success or a failure, so the UI can colour it. */
+let transferStatus: 'ok' | 'error' | null = null;
 let mirrorWindow: BrowserWindow | null = null;
 const dumpIndex = process.argv.indexOf('--dump-frame');
 let dumpFramePath: string | null =
@@ -217,10 +220,26 @@ async function pushState(): Promise<void> {
     phoneAction,
     transfer: transferProgress,
     transferMessage,
+    transferStatus,
     activeCall,
     pairedCount: keystore.listTrusted().length,
     lastRejection,
   });
+}
+
+/** Answer, decline (or hang up) and silence, from the popup or from the call banner itself. */
+function sendCallAction(action: 'answer' | 'decline' | 'silence'): void {
+  server.send({ type: 'call_action', action });
+  if (action === 'answer') {
+    // The call is live on the phone now; the banner has done its job.
+    presenter.dismissCall();
+    if (activeCall) activeCall = { ...activeCall, answered: true };
+  } else if (action === 'decline') {
+    // Declining (or hanging up) ends the call; clear it rather than wait for the phone.
+    presenter.dismissCall();
+    activeCall = null;
+  }
+  void pushState();
 }
 
 function requestContacts(): void {
@@ -259,7 +278,8 @@ function handleEnvelope(envelope: Envelope): void {
     case 'notification': {
       presenter.show(envelope);
       const { type: _type, ...item } = envelope;
-      feed = [item, ...feed].slice(0, FEED_LIMIT);
+      // Same id means the phone updated a notification it already sent: replace, not add.
+      feed = [item, ...feed.filter(existing => existing.id !== item.id)].slice(0, FEED_LIMIT);
       void pushState();
       return;
     }
@@ -335,7 +355,7 @@ function handleEnvelope(envelope: Envelope): void {
 
     case 'call_incoming': {
       console.log(`[call] incoming from ${envelope.callerName ?? envelope.callerNumber}`);
-      presenter.showCall(envelope);
+      presenter.showCall(envelope, sendCallAction);
       activeCall = {
         callerName: envelope.callerName ?? null,
         callerNumber: envelope.callerNumber,
@@ -431,16 +451,29 @@ app.whenReady().then(() => {
 
   transfers.on('progress', progress => {
     transferProgress = progress;
+    // A new transfer replaces whatever the last one reported.
+    if (progress) {
+      transferMessage = null;
+      transferStatus = null;
+    }
     void pushState();
   });
   transfers.on('received', target => {
     console.log(`[file] saved ${target}`);
     transferMessage = `Saved ${path.basename(target)} to Downloads/PhoneLinkClone`;
+    transferStatus = 'ok';
+    void pushState();
+  });
+  transfers.on('sent', fileName => {
+    console.log(`[file] sent ${fileName}`);
+    transferMessage = `${fileName} is on your phone, in Downloads`;
+    transferStatus = 'ok';
     void pushState();
   });
   transfers.on('error', message => {
     console.warn(`[file] ${message}`);
     transferMessage = message;
+    transferStatus = 'error';
     void pushState();
   });
 
@@ -521,14 +554,8 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('call-action', (_event, action: unknown) => {
-    if (action !== 'decline' && action !== 'silence') return;
-    server.send({ type: 'call_action', action });
-    // Declining ends the call; clear our banner rather than waiting for the phone to say so.
-    if (action === 'decline') {
-      presenter.dismissCall();
-      activeCall = null;
-      void pushState();
-    }
+    if (action !== 'answer' && action !== 'decline' && action !== 'silence') return;
+    sendCallAction(action);
   });
 
   ipcMain.handle('contacts-refresh', () => requestContacts());

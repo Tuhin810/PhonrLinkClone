@@ -15,6 +15,8 @@ export interface TransferProgress {
 export interface FileTransferEvents {
   progress: [TransferProgress | null];
   received: [string];
+  /** A file we sent reached the phone in full; carries the file name. */
+  sent: [string];
   error: [string];
 }
 
@@ -115,6 +117,7 @@ export class FileTransfers extends EventEmitter<FileTransferEvents> {
         await waitFor(isDrained);
       }
       dispatch({ type: 'file_complete', fileId });
+      this.emit('sent', fileName);
     } finally {
       await handle.close();
       this.emit('progress', null);

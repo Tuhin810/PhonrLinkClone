@@ -3,16 +3,24 @@
 These are accepted limitations, not bugs. Surface them in-app where a user would otherwise
 be confused.
 
-## 1. Remote call *answering* is out of scope; declining is implemented
+## 1. Call audio never reaches the Mac; answering picks up *on the phone*
 Windows Phone Link works because the PC pairs as a Bluetooth hands-free device and the phone
 routes call audio to it over HFP. macOS provides no API to act as a hands-free *device*, and
 streaming the audio ourselves would need `CAPTURE_AUDIO_OUTPUT` on Android — a privileged
 permission unavailable to normal apps. So a remote "Answer" button would connect the call while
 the audio stayed on the phone: a promise the app cannot keep.
 
-**What Phase 7 delivers:** alerts, plus **Decline** and **Silence ringer** from the Mac
+**What Phase 7 delivered:** alerts, plus **Decline** and **Silence ringer** from the Mac
 (`TelecomManager.endCall()` under `ANSWER_PHONE_CALLS`). Those are useful without audio routing
-— killing a spam call without touching the phone. Answering is deliberately absent.
+— killing a spam call without touching the phone.
+
+**Added later (protocol v6), at the user's request:** an **Answer** button
+(`TelecomManager.acceptRingingCall()`, same permission). It picks the call up on the phone and
+the conversation happens there — earpiece, speaker or connected earbuds. The audio limitation
+above is unchanged, so the button is surfaced honestly: the banner and popup say "Answer here,
+then talk on your phone", and an answered call shows "Talk on your phone — call audio cannot
+reach the Mac" with an **End call** button. Placing calls from the Mac's contacts page (v5) works
+the same way.
 
 `ANSWER_PHONE_CALLS` draws extra Google Play scrutiny; fine for sideloaded personal use.
 

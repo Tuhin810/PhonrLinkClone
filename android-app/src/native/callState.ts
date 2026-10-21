@@ -4,6 +4,7 @@ interface CallStateNative {
   startListening(): void;
   stopListening(): void;
   hasPhonePermission(): Promise<boolean>;
+  answerCall(): Promise<boolean>;
   declineCall(): Promise<boolean>;
   silenceRinger(): Promise<string>;
   openDndSettings(): Promise<void>;
@@ -17,6 +18,8 @@ export const CallState = {
   stopListening: () => native?.stopListening(),
   hasPhonePermission: (): Promise<boolean> =>
     native?.hasPhonePermission() ?? Promise.resolve(false),
+  answerCall: (): Promise<boolean> =>
+    native?.answerCall() ?? Promise.reject(new Error('CallState unavailable')),
   declineCall: (): Promise<boolean> =>
     native?.declineCall() ?? Promise.reject(new Error('CallState unavailable')),
   silenceRinger: (): Promise<string> =>
