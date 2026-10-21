@@ -10,21 +10,41 @@
     <link rel="stylesheet" href="mirror.css" />
   </head>
   <body>
+    <!-- The window is transparent and frameless: this device frame is all the user sees. -->
     <div class="phone">
-      <div class="screen">
-        <canvas id="screen"></canvas>
-        <div id="placeholder" class="placeholder">
-          <p id="placeholder-text">Starting screen sharing…</p>
-          <p class="hint">Approve the prompt on your phone.</p>
+      <span class="side action"></span>
+      <span class="side vol-up"></span>
+      <span class="side vol-down"></span>
+      <span class="side power"></span>
+      <div class="bezel">
+        <div class="screen">
+          <canvas id="screen"></canvas>
+          <div class="island" aria-hidden="true"></div>
+          <div id="placeholder" class="placeholder">
+            <p id="placeholder-text">Starting screen sharing…</p>
+            <p class="hint">Approve the prompt on your phone.</p>
+          </div>
         </div>
       </div>
-      <div class="nav">
-        <button id="back" title="Back">‹</button>
-        <button id="home" title="Home">○</button>
-        <button id="recents" title="Recents">□</button>
-      </div>
-      <p id="status" class="status"></p>
     </div>
+
+    <div class="controls">
+      <button id="back" title="Back">
+        <svg viewBox="0 0 24 24"><path d="m14.5 6-6 6 6 6" /></svg>
+      </button>
+      <button id="home" title="Home">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" /></svg>
+      </button>
+      <button id="recents" title="Recents">
+        <svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5" /></svg>
+      </button>
+      <span class="sep"></span>
+      <button id="close" title="Close">
+        <svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7 7 17" /></svg>
+      </button>
+    </div>
+    <p id="status" class="status"></p>
+
     <script src="mirror.js"></script>
   </body>
 </html>

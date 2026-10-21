@@ -19,8 +19,8 @@ import { NotificationPresenter } from './notifications';
 import { createTrayIcon } from './trayIcon';
 import { localAddresses } from './network';
 
-const POPUP_WIDTH = 360;
-const POPUP_HEIGHT = 460;
+const POPUP_WIDTH = 372;
+const POPUP_HEIGHT = 572;
 /** How many notifications the popup feed keeps. */
 const FEED_LIMIT = 50;
 
@@ -64,6 +64,11 @@ function createPopup(): BrowserWindow {
     height: POPUP_HEIGHT,
     show: false,
     frame: false,
+    // Transparent so the renderer can draw its own large rounded panel; macOS frameless
+    // corners are too tight. The native shadow follows the panel's painted shape.
+    transparent: true,
+    backgroundColor: '#00000000',
+    hasShadow: true,
     resizable: false,
     fullscreenable: false,
     // Closing the popup should hide it, not tear down the app.
@@ -94,9 +99,14 @@ function openMirror(): void {
 
   mirrorWindow = new BrowserWindow({
     width: 380,
-    height: 780,
+    height: 860,
     title: 'Phone',
-    backgroundColor: '#101014',
+    // Frameless and transparent: the renderer draws the device frame as the window's shape.
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    hasShadow: false,
+    resizable: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

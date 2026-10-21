@@ -9,43 +9,142 @@
     <title>PhoneLink Clone</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
-  <body>
-    <header>
-      <div class="row">
-        <span id="dot" class="dot waiting"></span>
-        <span id="status">Waiting for phone…</span>
+  <body class="state-waiting">
+    <!-- Blur + alpha threshold merges the dock pill and the round button into one blob. -->
+    <svg class="defs" aria-hidden="true">
+      <filter id="goo" color-interpolation-filters="sRGB">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="blur" />
+        <feColorMatrix
+          in="blur"
+          mode="matrix"
+          values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -10"
+        />
+      </filter>
+    </svg>
+
+    <div class="panel">
+      <header>
+        <div class="device">
+          <div class="avatar">
+            <svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2.5" /><path d="M11 18h2" /></svg>
+          </div>
+          <div class="device-text">
+            <div id="status" class="device-name">Waiting for phone…</div>
+            <span id="chip" class="chip waiting">
+              <span class="dot"></span>
+              <span id="state-label">Waiting</span>
+            </span>
+          </div>
+        </div>
+        <div class="menu-wrap">
+          <button id="more" class="icon-btn" title="More">
+            <svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.4" /><circle cx="12" cy="12" r="1.4" /><circle cx="18" cy="12" r="1.4" /></svg>
+          </button>
+          <div id="menu" class="menu">
+            <button id="menu-toggle">Pause connections</button>
+            <button id="unpair" class="danger">Unpair all devices</button>
+            <div class="menu-sep"></div>
+            <button id="quit">Quit PhoneLink</button>
+          </div>
+        </div>
+      </header>
+
+      <section id="pairing" class="pairing">
+        <div class="qr-plate"><img id="qr" alt="Pairing QR code" /></div>
+        <p class="pair-title">Pair your phone</p>
+        <ol class="steps">
+          <li><span class="step-num">1</span><span>Open PhoneLink Clone on your phone</span></li>
+          <li><span class="step-num">2</span><span>Tap <b>Scan QR from Mac</b></span></li>
+          <li><span class="step-num">3</span><span>Point the camera at this code</span></li>
+        </ol>
+        <p id="rejection" class="rejection"></p>
+        <div id="address" class="address"></div>
+      </section>
+
+      <section id="paused" class="paused-card">
+        <div class="paused-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 3v8" /><path d="M7 6.5a7 7 0 1 0 10 0" /></svg>
+        </div>
+        <p class="paused-title">Connections paused</p>
+        <p class="paused-text">Your phone can't reach this Mac until you turn connections back on.</p>
+        <button id="resume" class="primary">Allow connections</button>
+      </section>
+
+      <section id="call" class="call">
+        <div class="call-icon">
+          <svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2" /></svg>
+        </div>
+        <div class="call-body">
+          <p class="call-title" id="call-caller"></p>
+          <p class="call-hint">Answer on your phone — audio stays there</p>
+          <div class="call-actions">
+            <button id="call-decline" class="pill danger">Decline</button>
+            <button id="call-silence" class="pill">Silence</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="feed-section">
+        <div class="section-head">
+          <span>Notifications</span>
+          <span id="count" class="count"></span>
+        </div>
+        <main>
+          <ul id="feed"></ul>
+          <div id="empty" class="empty">
+            <div class="empty-icon">
+              <svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" /><path d="M10 20a2 2 0 0 0 4 0" /></svg>
+            </div>
+            <p class="empty-title">All caught up</p>
+            <p class="empty-text">Notifications from your phone will show up here.</p>
+          </div>
+        </main>
+      </section>
+
+      <div id="transfer" class="transfer">
+        <div class="transfer-icon">
+          <svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /></svg>
+        </div>
+        <div class="transfer-body">
+          <div class="transfer-row">
+            <span id="transfer-text"></span>
+            <span id="transfer-pct"></span>
+          </div>
+          <div class="bar"><div id="transfer-bar" class="bar-fill"></div></div>
+        </div>
       </div>
-      <div id="address" class="muted"></div>
-    </header>
-    <section id="pairing" class="pairing">
-      <p class="pair-hint">Scan with PhoneLink Clone on your phone to pair</p>
-      <img id="qr" alt="Pairing QR code" />
-      <p id="rejection" class="rejection"></p>
-    </section>
-    <section id="call" class="call">
-      <p class="call-title" id="call-caller"></p>
-      <p class="call-hint">Answer on your phone — audio stays there</p>
-      <div class="call-actions">
-        <button id="call-decline" class="danger">Decline</button>
-        <button id="call-silence">Silence ringer</button>
+
+      <div id="drop" class="drop-overlay">
+        <div class="drop-inner">
+          <svg viewBox="0 0 24 24"><path d="M12 4v11" /><path d="m7 10 5 5 5-5" /><path d="M5 20h14" /></svg>
+          <p>Drop to send to your phone</p>
+        </div>
       </div>
-    </section>
-    <section id="drop" class="drop">
-      <p id="drop-text">Drop a file here to send it to your phone</p>
-    </section>
-    <main>
-      <ul id="feed"></ul>
-      <p id="empty" class="empty">
-        No notifications yet. Trigger one on your phone.
-      </p>
-    </main>
-    <footer>
-      <button id="mirror">Phone screen</button>
-      <button id="clipboard">Clipboard: on</button>
-      <button id="toggle">Disconnect</button>
-      <button id="unpair">Unpair</button>
-      <button id="quit">Quit</button>
-    </footer>
+
+      <nav class="dock">
+        <div class="dock-shapes" aria-hidden="true">
+          <span class="shape-pill"></span>
+          <span class="shape-bridge"></span>
+          <span class="shape-round"></span>
+        </div>
+        <div class="dock-buttons">
+          <button id="mirror" class="dock-btn" data-tip="Phone screen">
+            <svg viewBox="0 0 24 24"><rect x="5.5" y="2" width="13" height="20" rx="3.5" /><rect x="8" y="5" width="8" height="11" rx="1.5" /><circle class="fill" cx="12" cy="19" r="1" /></svg>
+          </button>
+          <button id="clipboard" class="dock-btn" data-tip="Clipboard sync: on">
+            <svg viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="12" height="12" rx="3" /><path d="M15.5 8.5V6.5a3 3 0 0 0-3-3h-6a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3h2" /></svg>
+          </button>
+          <button id="send-file" class="dock-btn" data-tip="Send a file">
+            <svg viewBox="0 0 24 24"><path d="M20.5 3.5 10.8 13.2" /><path d="M20.5 3.5 14.4 20.3a.6.6 0 0 1-1.1 0l-2.5-7.1-7.1-2.5a.6.6 0 0 1 0-1.1z" /></svg>
+          </button>
+          <button id="toggle" class="dock-round" data-tip="Disconnect">
+            <svg viewBox="0 0 24 24"><path d="M12 3v8.5" /><path d="M17.3 6.4a8 8 0 1 1-10.6 0" /></svg>
+          </button>
+        </div>
+        <input id="file-input" type="file" multiple hidden />
+      </nav>
+    </div>
+
     <script src="popup.js"></script>
   </body>
 </html>

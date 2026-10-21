@@ -18,6 +18,8 @@ function drawFrame({ data, width, height }) {
       canvas.width = width;
       canvas.height = height;
       frameSize = { width, height };
+      // Shape the device screen to the phone's real aspect, so the frame hugs the picture.
+      document.documentElement.style.setProperty('--aspect', `${width} / ${height}`);
     }
     context.drawImage(image, 0, 0, width, height);
     placeholder.classList.add('hidden');
@@ -108,6 +110,9 @@ for (const [id, key] of [
     .getElementById(id)
     .addEventListener('click', () => window.phonelink.input({ type: 'input_key', key }));
 }
+
+// The window is frameless, so it needs its own close; 'closed' in main stops the capture.
+document.getElementById('close').addEventListener('click', () => window.close());
 
 window.phonelink.onFrame(drawFrame);
 window.phonelink.onScreenState(state => {
