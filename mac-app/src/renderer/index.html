@@ -6,7 +6,7 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'none'; style-src 'self'; script-src 'self'; img-src data:;"
     />
-    <title>PhoneLink Clone</title>
+    <title>ILink</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body class="state-waiting">
@@ -44,7 +44,7 @@
             <button id="menu-toggle">Pause connections</button>
             <button id="unpair" class="danger">Unpair all devices</button>
             <div class="menu-sep"></div>
-            <button id="quit">Quit PhoneLink</button>
+            <button id="quit">Quit ILink</button>
           </div>
         </div>
       </header>
@@ -53,7 +53,7 @@
         <div class="qr-plate"><img id="qr" alt="Pairing QR code" /></div>
         <p class="pair-title">Pair your phone</p>
         <ol class="steps">
-          <li><span class="step-num">1</span><span>Open PhoneLink Clone on your phone</span></li>
+          <li><span class="step-num">1</span><span>Open ILink on your phone</span></li>
           <li><span class="step-num">2</span><span>Tap <b>Scan QR from Mac</b></span></li>
           <li><span class="step-num">3</span><span>Point the camera at this code</span></li>
         </ol>
@@ -84,22 +84,89 @@
         </div>
       </section>
 
-      <section class="feed-section">
-        <div class="section-head">
-          <span>Notifications</span>
-          <span id="count" class="count"></span>
-        </div>
-        <main>
-          <ul id="feed"></ul>
-          <div id="empty" class="empty">
-            <div class="empty-icon">
-              <svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" /><path d="M10 20a2 2 0 0 0 4 0" /></svg>
+      <!-- Two pages side by side; the dock's tabs slide the track between them. -->
+      <div id="pages" class="pages">
+        <div class="pages-track">
+          <section class="page feed-section">
+            <div class="section-head">
+              <span>Notifications</span>
+              <span id="count" class="count"></span>
             </div>
-            <p class="empty-title">All caught up</p>
-            <p class="empty-text">Notifications from your phone will show up here.</p>
-          </div>
-        </main>
-      </section>
+            <main>
+              <ul id="feed"></ul>
+              <div id="empty" class="empty">
+                <div class="empty-icon">
+                  <svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" /><path d="M10 20a2 2 0 0 0 4 0" /></svg>
+                </div>
+                <p class="empty-title">All caught up</p>
+                <p class="empty-text">Notifications from your phone will show up here.</p>
+              </div>
+            </main>
+          </section>
+
+          <section class="page files-page">
+            <div class="section-head">
+              <span>Send to phone</span>
+            </div>
+            <div class="files-body">
+              <div id="dropzone" class="dropzone">
+                <div class="dz-icon">
+                  <svg viewBox="0 0 24 24"><path d="M12 16V5" /><path d="m7 9.5 5-5 5 5" /><path d="M5 19.5h14" /></svg>
+                </div>
+                <p class="dz-title">Drag &amp; drop files here</p>
+                <p class="dz-text">They're saved to Downloads on your phone</p>
+                <div class="dz-or"><span>or</span></div>
+                <button id="choose-file" class="primary">Choose files</button>
+              </div>
+              <div id="files-progress" class="files-progress">
+                <div class="bar"><div id="files-bar" class="bar-fill"></div></div>
+                <p id="files-status" class="files-status"></p>
+              </div>
+            </div>
+          </section>
+
+          <section class="page clips-page">
+            <div class="section-head">
+              <span>Clipboard</span>
+              <button id="clips-clear" class="text-btn">Clear all</button>
+            </div>
+            <main>
+              <ul id="clips" class="clips"></ul>
+              <div id="clips-empty" class="empty">
+                <div class="empty-icon">
+                  <svg viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="12" height="12" rx="3" /><path d="M15.5 8.5V6.5a3 3 0 0 0-3-3h-6a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3h2" /></svg>
+                </div>
+                <p class="empty-title">Nothing copied yet</p>
+                <p class="empty-text">Copy on your Mac or phone — it syncs both ways and shows up here.</p>
+              </div>
+            </main>
+          </section>
+
+          <section class="page contacts-page">
+            <div class="section-head">
+              <span>Contacts <span id="contacts-count" class="count"></span></span>
+              <button id="contacts-refresh" class="text-btn">Refresh</button>
+            </div>
+            <div class="contacts-tools">
+              <div class="search">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></svg>
+                <input id="contacts-search" type="search" placeholder="Search name or number" autocomplete="off" />
+              </div>
+              <p id="phone-action" class="phone-action"></p>
+            </div>
+            <main>
+              <ul id="contacts" class="contacts"></ul>
+              <div id="contacts-empty" class="empty">
+                <div class="empty-icon">
+                  <svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2" /></svg>
+                </div>
+                <p id="contacts-empty-title" class="empty-title">Loading contacts…</p>
+                <p id="contacts-empty-text" class="empty-text"></p>
+              </div>
+            </main>
+          </section>
+        </div>
+      </div>
 
       <div id="transfer" class="transfer">
         <div class="transfer-icon">
@@ -128,17 +195,20 @@
           <span class="shape-round"></span>
         </div>
         <div class="dock-buttons">
+          <button id="home-tab" class="dock-btn active" data-tip="Notifications">
+            <svg viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 6.5 2.5 8 2.5 8h-17S6 15.5 6 9" /><path d="M10.2 20.5a2 2 0 0 0 3.6 0" /></svg>
+          </button>
+          <button id="files-tab" class="dock-btn" data-tip="Send files">
+            <svg viewBox="0 0 24 24"><path d="M20.5 3.5 10.8 13.2" /><path d="M20.5 3.5 14.4 20.3a.6.6 0 0 1-1.1 0l-2.5-7.1-7.1-2.5a.6.6 0 0 1 0-1.1z" /></svg>
+          </button>
+          <button id="clips-tab" class="dock-btn" data-tip="Clipboard">
+            <svg viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="12" height="12" rx="3" /><path d="M15.5 8.5V6.5a3 3 0 0 0-3-3h-6a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3h2" /></svg>
+          </button>
           <button id="mirror" class="dock-btn" data-tip="Phone screen">
             <svg viewBox="0 0 24 24"><rect x="5.5" y="2" width="13" height="20" rx="3.5" /><rect x="8" y="5" width="8" height="11" rx="1.5" /><circle class="fill" cx="12" cy="19" r="1" /></svg>
           </button>
-          <button id="clipboard" class="dock-btn" data-tip="Clipboard sync: on">
-            <svg viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="12" height="12" rx="3" /><path d="M15.5 8.5V6.5a3 3 0 0 0-3-3h-6a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3h2" /></svg>
-          </button>
-          <button id="send-file" class="dock-btn" data-tip="Send a file">
-            <svg viewBox="0 0 24 24"><path d="M20.5 3.5 10.8 13.2" /><path d="M20.5 3.5 14.4 20.3a.6.6 0 0 1-1.1 0l-2.5-7.1-7.1-2.5a.6.6 0 0 1 0-1.1z" /></svg>
-          </button>
-          <button id="toggle" class="dock-round" data-tip="Disconnect">
-            <svg viewBox="0 0 24 24"><path d="M12 3v8.5" /><path d="M17.3 6.4a8 8 0 1 1-10.6 0" /></svg>
+          <button id="contacts-tab" class="dock-round" data-tip="Call or text">
+            <svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2" /></svg>
           </button>
         </div>
         <input id="file-input" type="file" multiple hidden />

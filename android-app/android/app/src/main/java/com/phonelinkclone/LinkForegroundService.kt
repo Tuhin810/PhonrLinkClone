@@ -59,11 +59,11 @@ class LinkForegroundService : Service() {
     val manager = getSystemService(NotificationManager::class.java)
     val channel = NotificationChannel(
       CHANNEL_ID,
-      "PhoneLink status",
+      "ILink status",
       // LOW keeps the persistent notification silent and collapsed.
       NotificationManager.IMPORTANCE_LOW,
     ).apply {
-      description = "Shows while PhoneLink Clone is connected to your Mac"
+      description = "Shows while ILink is connected to your Mac"
       setShowBadge(false)
     }
     manager.createNotificationChannel(channel)
@@ -80,9 +80,9 @@ class LinkForegroundService : Service() {
       PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
     return Notification.Builder(this, CHANNEL_ID)
-      .setContentTitle("PhoneLink Clone is running")
+      .setContentTitle("ILink is running")
       .setContentText("Mirroring notifications to your Mac")
-      .setSmallIcon(android.R.drawable.stat_notify_sync)
+      .setSmallIcon(R.drawable.ic_stat_ilink)
       .setContentIntent(pendingIntent)
       .setOngoing(true)
       .build()

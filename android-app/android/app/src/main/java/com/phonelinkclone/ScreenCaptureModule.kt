@@ -69,7 +69,7 @@ class ScreenCaptureModule(
   fun startCapture(promise: Promise) {
     val activity = reactContext.currentActivity
     if (activity == null) {
-      promise.reject("no_activity", "Open the PhoneLink app on the phone to start mirroring")
+      promise.reject("no_activity", "Open the ILink app on the phone to start mirroring")
       return
     }
     ScreenEventBus.setSink(this)

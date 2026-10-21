@@ -10,7 +10,13 @@ contextBridge.exposeInMainWorld('phonelink', {
   requestState: () => ipcRenderer.invoke('request-state'),
   toggleConnection: () => ipcRenderer.invoke('toggle-connection'),
   unpairAll: () => ipcRenderer.invoke('unpair-all'),
-  toggleClipboard: () => ipcRenderer.invoke('toggle-clipboard'),
+  copyClip: (id: string) => ipcRenderer.invoke('clip-copy', id),
+  deleteClip: (id: string) => ipcRenderer.invoke('clip-delete', id),
+  clearClips: () => ipcRenderer.invoke('clip-clear'),
+  refreshContacts: () => ipcRenderer.invoke('contacts-refresh'),
+  call: (number: string, name: string) => ipcRenderer.invoke('phone-call', number, name),
+  text: (number: string, body: string, name: string) =>
+    ipcRenderer.invoke('phone-text', number, body, name),
   callAction: (action: 'decline' | 'silence') => ipcRenderer.invoke('call-action', action),
   /**
    * Dropped files. The renderer has no filesystem access, so paths are resolved here via

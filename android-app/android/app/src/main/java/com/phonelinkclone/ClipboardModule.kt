@@ -74,7 +74,7 @@ class ClipboardModule(
   fun setText(text: String, promise: Promise) {
     try {
       lastWritten = text
-      manager.setPrimaryClip(ClipData.newPlainText("PhoneLink", text))
+      manager.setPrimaryClip(ClipData.newPlainText("ILink", text))
       promise.resolve(null)
     } catch (e: Exception) {
       promise.reject("clipboard_write_failed", e)

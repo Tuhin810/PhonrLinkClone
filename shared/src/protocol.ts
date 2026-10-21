@@ -6,9 +6,9 @@
 /**
  * Bumped on any breaking change. Exchanged during pairing so mismatches fail loudly.
  * v2 added the encrypted channel and `pairingProof`; v3 added `call_action`; v4 added screen
- * mirroring and remote input.
+ * mirroring and remote input; v5 added contacts, placing calls and sending SMS from the Mac.
  */
-export const PROTOCOL_VERSION = 4;
+export const PROTOCOL_VERSION = 5;
 
 /** Default LAN port the Mac listens on. */
 export const DEFAULT_PORT = 47711;
@@ -88,7 +88,7 @@ export interface NotificationMessage {
   title: string;
   text: string;
   timestamp: number;
-  /** Base64 PNG of the small icon, downscaled to 64x64 by the sender. */
+  /** Base64 PNG of the posting app's launcher icon (small icon as fallback), 96x96. */
   icon?: string;
 }
 
@@ -114,6 +114,49 @@ export interface CallIncomingMessage {
 export interface CallActionMessage {
   type: 'call_action';
   action: 'decline' | 'silence';
+}
+
+export interface ContactPhone {
+  number: string;
+  /** "Mobile", "Work", a custom label — whatever the phone's contacts app shows. */
+  label?: string;
+}
+
+export interface Contact {
+  /** The phone's contact id; stable for the session, used only as a list key. */
+  id: string;
+  name: string;
+  phones: ContactPhone[];
+  starred: boolean;
+}
+
+/** Mac -> phone: send the address book. Answered with `contacts_list`. */
+export interface ContactsRequestMessage {
+  type: 'contacts_request';
+}
+
+/** Phone -> Mac: every contact that has at least one number, or why there are none. */
+export interface ContactsListMessage {
+  type: 'contacts_list';
+  contacts: Contact[];
+  /** Set instead of contacts when the phone could not read them (e.g. permission denied). */
+  error?: string;
+}
+
+/**
+ * Mac -> phone: place a call or send a text. The call itself happens on the phone — audio
+ * never reaches the Mac (docs/CONSTRAINTS.md #1). Answered with `phone_action_result`.
+ */
+export type PhoneActionMessage =
+  | { type: 'dial'; id: string; number: string }
+  | { type: 'sms_send'; id: string; number: string; body: string };
+
+/** Phone -> Mac: outcome of a `dial` or `sms_send`, matched by `id`. */
+export interface PhoneActionResultMessage {
+  type: 'phone_action_result';
+  id: string;
+  ok: boolean;
+  error?: string;
 }
 
 export interface CallEndedMessage {
@@ -228,6 +271,10 @@ export type Envelope =
   | CallIncomingMessage
   | CallEndedMessage
   | CallActionMessage
+  | ContactsRequestMessage
+  | ContactsListMessage
+  | PhoneActionMessage
+  | PhoneActionResultMessage
   | ClipboardUpdateMessage
   | FileOfferMessage
   | FileChunkMessage

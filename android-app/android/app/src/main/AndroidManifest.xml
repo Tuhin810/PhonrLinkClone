@@ -22,10 +22,23 @@
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <!-- Optional: turns a number into a name. The app works without it. -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- Calling and texting from the Mac's contacts page. The call audio stays on the phone
+         (docs/CONSTRAINTS.md #1); SEND_SMS draws Play review, fine for sideloaded use (#4). -->
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
     <!-- Scanning the Mac's pairing QR code. Requested at runtime, only while scanning. -->
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Android 13+: needed to post our own persistent service notification. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Notification icons are the posting app's launcher icon; since Android 11 other apps'
+         icons are only visible to us if we declare which apps we look at. -->
+    <queries>
+      <intent>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+      </intent>
+    </queries>
 
     <application
       android:name=".MainApplication"

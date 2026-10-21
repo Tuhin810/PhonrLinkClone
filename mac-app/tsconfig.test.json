@@ -12,6 +12,7 @@
     "src/main/linkServer.ts",
     "src/main/keystore.ts",
     "src/main/fileTransfer.ts",
+    "src/main/clipboardHistory.ts",
     "test"
   ]
 }

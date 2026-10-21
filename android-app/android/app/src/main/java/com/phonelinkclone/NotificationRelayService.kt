@@ -21,9 +21,10 @@ class NotificationRelayService : NotificationListenerService() {
 
   companion object {
     private const val TAG = "PhoneLinkListener"
-    private const val ICON_SIZE_PX = 64
+    /** Full-colour app icons need more pixels than silhouettes to stay sharp on Retina. */
+    private const val ICON_SIZE_PX = 96
     /** Guards against a runaway base64 payload from an unusually large icon. */
-    private const val MAX_ICON_BASE64_CHARS = 32_000
+    private const val MAX_ICON_BASE64_CHARS = 48_000
 
     private val DIALER_HINTS = listOf("dialer", "incallui", "telecom", "phone")
 
@@ -103,10 +104,17 @@ class NotificationRelayService : NotificationListenerService() {
   private fun isDialerPackage(packageName: String): Boolean =
     DIALER_HINTS.any { packageName.contains(it, ignoreCase = true) }
 
-  /** Small icon as a downscaled base64 PNG, or null if it could not be rendered. */
+  /**
+   * The posting app's launcher icon as a downscaled base64 PNG, or null if nothing renders.
+   *
+   * Not the notification's small icon: that is a white status-bar silhouette, which is
+   * unrecognisable (and invisible on light backgrounds) once it leaves the status bar. The
+   * small icon is only the fallback for packages with no launcher icon we can see.
+   */
   private fun extractIcon(sbn: StatusBarNotification): String? {
     return try {
-      val drawable: Drawable = sbn.notification.smallIcon?.loadDrawable(applicationContext)
+      val drawable: Drawable = appIcon(sbn.packageName)
+        ?: sbn.notification.smallIcon?.loadDrawable(applicationContext)
         ?: return null
       val bitmap = drawable.toScaledBitmap(ICON_SIZE_PX)
       val stream = ByteArrayOutputStream()
@@ -120,6 +128,14 @@ class NotificationRelayService : NotificationListenerService() {
       null
     }
   }
+
+  /** Needs the launcher-intent <queries> entry in the manifest to see other apps (API 30+). */
+  private fun appIcon(packageName: String): Drawable? =
+    try {
+      packageManager.getApplicationIcon(packageName)
+    } catch (e: Exception) {
+      null
+    }
 
   private fun Drawable.toScaledBitmap(size: Int): Bitmap {
     if (this is BitmapDrawable && bitmap != null) {

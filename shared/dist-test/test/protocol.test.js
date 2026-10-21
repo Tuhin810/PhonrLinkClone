@@ -53,6 +53,31 @@ const src_1 = require("../src");
             timestamp: 1,
         })), null);
     });
+    (0, node_test_1.it)('accepts a contacts list and normalises missing fields', () => {
+        const envelope = (0, src_1.parseEnvelope)(JSON.stringify({
+            type: 'contacts_list',
+            contacts: [{ id: '7', name: 'Mom', phones: [{ number: '+91 98000 00000' }] }],
+        }));
+        strict_1.default.equal(envelope.type, 'contacts_list');
+        if (envelope.type !== 'contacts_list')
+            return;
+        strict_1.default.equal(envelope.contacts[0]?.starred, false);
+        strict_1.default.equal(envelope.contacts[0]?.phones[0]?.label, undefined);
+    });
+    (0, node_test_1.it)('rejects a contact whose phones are not a list', () => {
+        strict_1.default.equal((0, src_1.tryParseEnvelope)(JSON.stringify({
+            type: 'contacts_list',
+            contacts: [{ id: '7', name: 'Mom', phones: '+91 98000 00000' }],
+        })), null);
+    });
+    (0, node_test_1.it)('requires a body to send a text', () => {
+        strict_1.default.equal((0, src_1.tryParseEnvelope)('{"type":"sms_send","id":"1","number":"123"}'), null);
+        const envelope = (0, src_1.parseEnvelope)('{"type":"sms_send","id":"1","number":"123","body":"hi"}');
+        strict_1.default.equal(envelope.type, 'sms_send');
+    });
+    (0, node_test_1.it)('requires a boolean outcome on a phone action result', () => {
+        strict_1.default.equal((0, src_1.tryParseEnvelope)('{"type":"phone_action_result","id":"1","ok":"yes"}'), null);
+    });
 });
 (0, node_test_1.describe)('pairing payload', () => {
     (0, node_test_1.it)('round-trips a v2 payload', () => {

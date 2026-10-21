@@ -2,13 +2,15 @@
   "name": "@phonelink/mac-app",
   "version": "1.0.0",
   "private": true,
-  "description": "PhoneLink Clone — macOS menu bar receiver",
+  "productName": "ILink",
+  "description": "ILink — macOS menu bar receiver",
   "main": "dist/main/main.js",
   "scripts": {
     "build": "npm run build:shared && tsc -p tsconfig.json && npm run copy-assets",
     "copy-assets": "mkdir -p dist/renderer && cp src/renderer/*.html src/renderer/*.css src/renderer/*.js dist/renderer/",
-    "start": "npm run build && env -u ELECTRON_RUN_AS_NODE electron .",
-    "dev": "npm run build && env -u ELECTRON_RUN_AS_NODE electron . --dev",
+    "start": "npm run build && npm run brand && env -u ELECTRON_RUN_AS_NODE electron .",
+    "dev": "npm run build && npm run brand && env -u ELECTRON_RUN_AS_NODE electron . --dev",
+    "brand": "node scripts/brand-electron.js",
     "build:shared": "npm --prefix ../shared run build",
     "test": "npm run build:shared && tsc -p tsconfig.test.json && node --test \"dist-test/test/*.test.js\""
   },

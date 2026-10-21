@@ -108,7 +108,7 @@ class ScreenCaptureService : Service() {
     reader = imageReader
 
     virtualDisplay = projection.createVirtualDisplay(
-      "PhoneLink",
+      "ILink",
       width,
       height,
       metrics.densityDpi,
@@ -197,8 +197,8 @@ class ScreenCaptureService : Service() {
   private fun buildNotification(): Notification =
     Notification.Builder(this, CHANNEL_ID)
       .setContentTitle("Sharing your screen with your Mac")
-      .setContentText("Tap the PhoneLink app to stop")
-      .setSmallIcon(android.R.drawable.stat_notify_sync)
+      .setContentText("Tap the ILink app to stop")
+      .setSmallIcon(R.drawable.ic_stat_ilink)
       .setOngoing(true)
       .build()
 }

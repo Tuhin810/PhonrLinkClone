@@ -119,7 +119,7 @@ window.phonelink.onScreenState(state => {
   if (state.streaming) {
     status.textContent = state.inputAvailable
       ? ''
-      : 'View only — enable PhoneLink in the phone’s Accessibility settings to control it';
+      : 'View only — enable ILink in the phone’s Accessibility settings to control it';
     return;
   }
   placeholder.classList.remove('hidden');

@@ -1,62 +1,24 @@
 import React from 'react';
-import {
-  FlatList,
-  Image,
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  useColorScheme,
-} from 'react-native';
-import type { NotificationMessage } from '@phonelink/shared';
-import { MAC_PORT } from './src/config';
+import { StatusBar, StyleSheet, View } from 'react-native';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScanQrScreen } from './src/discovery/ScanQrScreen';
-import { ConnectionState } from './src/net/linkClient';
 import { useNotificationMirror } from './src/useNotificationMirror';
+import { ControlsScreen } from './src/ui/ControlsScreen';
+import { Dock, type DockTab } from './src/ui/Dock';
+import { HomeScreen } from './src/ui/HomeScreen';
+import { MacScreen } from './src/ui/MacScreen';
+import { colors } from './src/ui/theme';
 
-const STATUS_COLOR: Record<ConnectionState, string> = {
-  connected: '#2f9e44',
-  connecting: '#f08c00',
-  disconnected: '#868e96',
-};
+type Tab = 'home' | 'mac' | 'controls';
 
-const STATUS_LABEL: Record<ConnectionState, string> = {
-  connected: 'Connected to Mac',
-  connecting: 'Connecting…',
-  disconnected: 'Disconnected',
-};
+const TABS: DockTab<Tab>[] = [
+  { key: 'home', icon: 'bell' },
+  { key: 'mac', icon: 'laptop' },
+  { key: 'controls', icon: 'sliders' },
+];
 
-function NotificationRow({ item }: { item: NotificationMessage }) {
-  return (
-    <View style={styles.row}>
-      {item.icon ? (
-        <Image
-          style={styles.icon}
-          source={{ uri: `data:image/png;base64,${item.icon}` }}
-        />
-      ) : (
-        <View style={[styles.icon, styles.iconPlaceholder]} />
-      )}
-      <View style={styles.rowText}>
-        <Text style={styles.rowApp} numberOfLines={1}>
-          {item.app}
-        </Text>
-        <Text style={styles.rowTitle} numberOfLines={1}>
-          {item.title || '(no title)'}
-        </Text>
-        <Text style={styles.rowBody} numberOfLines={2}>
-          {item.text}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-function App(): React.JSX.Element {
-  const isDark = useColorScheme() === 'dark';
+function Main(): React.JSX.Element {
+  const insets = useSafeAreaInsets();
   const {
     state,
     openSettings,
@@ -68,28 +30,9 @@ function App(): React.JSX.Element {
     sendFile,
     openAccessibilitySettings,
   } = useNotificationMirror();
+  const [tab, setTab] = React.useState<Tab>('home');
   const [showManual, setShowManual] = React.useState(false);
   const [scanning, setScanning] = React.useState(false);
-  const [draftHost, setDraftHost] = React.useState('');
-
-  React.useEffect(() => {
-    setDraftHost(state.manualHost ?? '');
-  }, [state.manualHost]);
-
-  const pairedLabel = state.paired
-    ? `Paired with ${state.paired.deviceName}`
-    : 'Not paired — scan the QR in the Mac app';
-
-  const targetLabel =
-    state.targetSource === 'none'
-      ? state.discoveryLikelyBlocked
-        ? 'No Mac found — this network may block discovery'
-        : 'Searching for your Mac on this network…'
-      : `${state.target}:${MAC_PORT} · ${
-          state.targetSource === 'manual'
-            ? 'manual address'
-            : state.deviceName ?? 'discovered'
-        }`;
 
   if (scanning) {
     return (
@@ -97,240 +40,88 @@ function App(): React.JSX.Element {
         onScanned={(host, token) => {
           beginPairing(host, token);
           setScanning(false);
+          setTab('home');
         }}
         onCancel={() => setScanning(false)}
       />
     );
   }
 
+  const openManual = () => {
+    setShowManual(true);
+    setTab('mac');
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-
-      <View style={styles.header}>
-        <Text style={styles.heading}>PhoneLink Clone</Text>
-        <View style={styles.statusRow}>
-          <View
-            style={[styles.dot, { backgroundColor: STATUS_COLOR[state.connection] }]}
-          />
-          <Text style={styles.statusText}>{STATUS_LABEL[state.connection]}</Text>
-        </View>
-        <Text style={styles.target}>{pairedLabel}</Text>
-        <Text style={styles.target}>{targetLabel}</Text>
-        {state.targetSource === 'none' &&
-          state.discoveryLog.map((line, index) => (
-            <Text key={`${line}-${index}`} style={styles.diagnostic}>
-              {line}
-            </Text>
-          ))}
-        <View style={styles.headerActions}>
-          <TouchableOpacity onPress={() => setScanning(true)}>
-            <Text style={styles.link}>Scan QR from Mac</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowManual(current => !current)}>
-            <Text style={styles.link}>
-              {showManual ? 'Hide manual address' : 'Enter address manually'}
-            </Text>
-          </TouchableOpacity>
-          {state.paired && (
-            <TouchableOpacity onPress={() => unpair()}>
-              <Text style={styles.link}>Unpair</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      {state.targetSource === 'none' && state.discoveryLikelyBlocked && !showManual && (
-        <TouchableOpacity style={styles.banner} onPress={() => setShowManual(true)}>
-          <Text style={styles.bannerTitle}>Discovery isn't finding your Mac</Text>
-          <Text style={styles.bannerBody}>
-            Scan the QR code in the Mac app's menu bar popup — that both finds your Mac and
-            pairs the two devices. Typing the address alone will not pair them.
-          </Text>
-        </TouchableOpacity>
-      )}
-
-      {showManual && (
-        <View style={styles.manualBox}>
-          <Text style={styles.manualHint}>
-            Some networks block the discovery protocol. Entering the address helps only if
-            the devices are already paired — first-time setup needs the QR code.
-          </Text>
-          <TextInput
-            style={styles.input}
-            value={draftHost}
-            onChangeText={setDraftHost}
-            placeholder="192.168.1.9"
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="numbers-and-punctuation"
-          />
-          <View style={styles.manualButtons}>
-            <TouchableOpacity onPress={() => saveManualHost(draftHost)}>
-              <Text style={styles.link}>Save</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => saveManualHost(null)}>
-              <Text style={styles.link}>Clear &amp; use discovery</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
-      {!state.accessGranted && (
-        <TouchableOpacity style={styles.banner} onPress={openSettings}>
-          <Text style={styles.bannerTitle}>Notification access required</Text>
-          <Text style={styles.bannerBody}>
-            Android cannot grant this automatically. Tap to open system settings and enable
-            PhoneLink Clone, then return here.
-          </Text>
-        </TouchableOpacity>
-      )}
-
-      {state.mirroring && (
-        <View style={styles.counters}>
-          <Text style={styles.counterText}>
-            Sharing your screen with your Mac
-            {state.inputAvailable ? '' : ' (view only)'}
-          </Text>
-        </View>
-      )}
-      {!state.inputAvailable && (
-        <TouchableOpacity style={styles.counters} onPress={() => openAccessibilitySettings()}>
-          <Text style={styles.link}>
-            Enable remote control (Accessibility settings)
-          </Text>
-        </TouchableOpacity>
-      )}
-      {state.lastInput && (
-        <View style={styles.counters}>
-          <Text style={styles.counterText}>Last remote input: {state.lastInput}</Text>
-        </View>
-      )}
-      {state.mirrorReason && (
-        <View style={styles.counters}>
-          <Text style={styles.counterText}>{state.mirrorReason}</Text>
-        </View>
-      )}
-
-      <View style={styles.counters}>
-        <TouchableOpacity onPress={() => sendFile()}>
-          <Text style={styles.link}>Send a file to Mac</Text>
-        </TouchableOpacity>
-        {state.transfer && (
-          <Text style={styles.counterText}>
-            {state.transfer.direction === 'sending' ? 'Sending' : 'Receiving'}{' '}
-            {state.transfer.fileName} — {state.transfer.done}/{state.transfer.total}
-          </Text>
-        )}
-      </View>
-      {state.transferError && (
-        <View style={styles.counters}>
-          <Text style={styles.counterText}>Transfer error: {state.transferError}</Text>
-        </View>
-      )}
-
-      <View style={styles.counters}>
-        <TouchableOpacity onPress={() => setClipboardEnabled(!state.clipboardEnabled)}>
-          <Text style={styles.link}>
-            Clipboard sync: {state.clipboardEnabled ? 'on' : 'off'}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => sendCurrentClipboard()}>
-          <Text style={styles.link}>Send clipboard to Mac</Text>
-        </TouchableOpacity>
-        {state.callActionError && (
-          <Text style={styles.counterText}>
-            Call action failed: {state.callActionError}
-          </Text>
-        )}
-        {state.clipboardSkipped && (
-          <Text style={styles.counterText}>Last clipboard item too large — skipped</Text>
-        )}
-      </View>
-
-      <View style={styles.counters}>
-        <Text style={styles.counterText}>Sent {state.sentCount}</Text>
-        <Text style={styles.counterText}>
-          Dropped while offline {state.droppedCount}
-        </Text>
-      </View>
-
-      <FlatList
-        data={state.feed}
-        keyExtractor={item => item.id}
-        renderItem={NotificationRow}
-        ListEmptyComponent={
-          <Text style={styles.empty}>
-            No notifications captured yet. Trigger one on this phone to see it here.
-          </Text>
-        }
-        contentContainerStyle={state.feed.length === 0 ? styles.emptyWrap : undefined}
+    <View style={styles.root}>
+      {/* Home opens on the light-blue hero; the other tabs are on ink. */}
+      <StatusBar
+        translucent
+        backgroundColor="transparent"
+        barStyle={tab === 'home' ? 'dark-content' : 'light-content'}
       />
-    </SafeAreaView>
+
+      {tab === 'home' && (
+        <HomeScreen
+          state={state}
+          topInset={insets.top}
+          onScan={() => setScanning(true)}
+          onManual={openManual}
+          onControls={() => setTab('controls')}
+          onOpenNotificationAccess={openSettings}
+          onSendClipboard={() => sendCurrentClipboard()}
+          onSendFile={() => sendFile()}
+          onOpenMac={() => setTab('mac')}
+        />
+      )}
+      {tab === 'mac' && (
+        <MacScreen
+          state={state}
+          topInset={insets.top}
+          showManual={showManual}
+          setShowManual={setShowManual}
+          onScan={() => setScanning(true)}
+          onSaveManual={host => saveManualHost(host)}
+          onUnpair={() => unpair()}
+        />
+      )}
+      {tab === 'controls' && (
+        <ControlsScreen
+          state={state}
+          topInset={insets.top}
+          onToggleClipboard={setClipboardEnabled}
+          onSendClipboard={() => sendCurrentClipboard()}
+          onSendFile={() => sendFile()}
+          onOpenNotificationAccess={openSettings}
+          onOpenAccessibility={() => openAccessibilitySettings()}
+        />
+      )}
+
+      <View style={[styles.dock, { paddingBottom: insets.bottom + 16 }]} pointerEvents="box-none">
+        <Dock<Tab>
+          tabs={TABS}
+          active={tab}
+          onSelect={setTab}
+          // Until paired, the primary action is pairing; afterwards it is sending a file.
+          actionIcon={state.paired ? 'plus' : 'qr'}
+          onAction={() => (state.paired ? sendFile() : setScanning(true))}
+        />
+      </View>
+    </View>
+  );
+}
+
+function App(): React.JSX.Element {
+  return (
+    <SafeAreaProvider>
+      <Main />
+    </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f9fa' },
-  header: { padding: 20, paddingBottom: 12 },
-  heading: { fontSize: 24, fontWeight: '700', color: '#212529' },
-  statusRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  dot: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
-  statusText: { fontSize: 15, color: '#343a40' },
-  target: { fontSize: 12, color: '#868e96', marginTop: 2 },
-  link: { fontSize: 12, color: '#1c7ed6', marginTop: 6 },
-  headerActions: { flexDirection: 'row', gap: 18 },
-  diagnostic: { fontSize: 10, color: '#adb5bd', fontFamily: 'monospace' },
-  manualBox: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    padding: 14,
-    borderRadius: 10,
-    backgroundColor: '#ffffff',
-  },
-  manualHint: { fontSize: 12, color: '#495057', lineHeight: 17, marginBottom: 8 },
-  input: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#adb5bd',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 15,
-    color: '#212529',
-  },
-  manualButtons: { flexDirection: 'row', justifyContent: 'space-between' },
-  banner: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    padding: 14,
-    borderRadius: 10,
-    backgroundColor: '#fff3bf',
-  },
-  bannerTitle: { fontWeight: '700', color: '#5c3c00', marginBottom: 4 },
-  bannerBody: { color: '#5c3c00', fontSize: 13, lineHeight: 18 },
-  counters: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 10,
-  },
-  counterText: { fontSize: 12, color: '#868e96' },
-  row: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#dee2e6',
-    backgroundColor: '#ffffff',
-  },
-  icon: { width: 32, height: 32, borderRadius: 6, marginRight: 12 },
-  iconPlaceholder: { backgroundColor: '#dee2e6' },
-  rowText: { flex: 1 },
-  rowApp: { fontSize: 11, color: '#868e96' },
-  rowTitle: { fontSize: 15, fontWeight: '600', color: '#212529' },
-  rowBody: { fontSize: 13, color: '#495057' },
-  empty: { textAlign: 'center', color: '#868e96', paddingHorizontal: 40 },
-  emptyWrap: { flexGrow: 1, justifyContent: 'center' },
+  root: { flex: 1, backgroundColor: colors.ink },
+  dock: { position: 'absolute', left: 0, right: 0, bottom: 0 },
 });
 
 export default App;

@@ -10,6 +10,7 @@ import { useClipboardSync } from './clipboard/useClipboardSync';
 import { useFileTransfer, type TransferProgress } from './files/useFileTransfer';
 import { useScreenMirror } from './mirror/useScreenMirror';
 import { CallState } from './native/callState';
+import { PhoneActions } from './native/phoneActions';
 import { ScreenCapture } from './native/screenCapture';
 import { NotificationBridge } from './native/notificationBridge';
 import { ConnectionState, LinkClient } from './net/linkClient';
@@ -115,6 +116,9 @@ export function useNotificationMirror() {
       PermissionsAndroid.PERMISSIONS.READ_CALL_LOG,
       PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
       PermissionsAndroid.PERMISSIONS.ANSWER_PHONE_CALLS,
+      // Calling and texting from the Mac's contacts page.
+      PermissionsAndroid.PERMISSIONS.CALL_PHONE,
+      PermissionsAndroid.PERMISSIONS.SEND_SMS,
     ])
       .then(() => CallState.hasPhonePermission())
       .then(setCallPermission)
@@ -252,6 +256,32 @@ export function useNotificationMirror() {
               ? CallState.declineCall()
               : CallState.silenceRinger();
           request.catch((error: Error) => setCallActionError(error.message));
+          return;
+        }
+        if (envelope.type === 'contacts_request') {
+          PhoneActions.getContacts()
+            .then(contacts => client.send({ type: 'contacts_list', contacts }))
+            .catch((error: Error) =>
+              client.send({ type: 'contacts_list', contacts: [], error: error.message }),
+            );
+          return;
+        }
+        if (envelope.type === 'dial' || envelope.type === 'sms_send') {
+          // Every request gets an answer, so the Mac never shows a spinner that never ends.
+          const action =
+            envelope.type === 'dial'
+              ? PhoneActions.placeCall(envelope.number)
+              : PhoneActions.sendSms(envelope.number, envelope.body);
+          action
+            .then(() => client.send({ type: 'phone_action_result', id: envelope.id, ok: true }))
+            .catch((error: Error) =>
+              client.send({
+                type: 'phone_action_result',
+                id: envelope.id,
+                ok: false,
+                error: error.message,
+              }),
+            );
           return;
         }
         if (

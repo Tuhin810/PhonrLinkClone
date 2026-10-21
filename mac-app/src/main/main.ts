@@ -1,9 +1,11 @@
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { BrowserWindow, Tray, app, ipcMain, screen } from 'electron';
+import { BrowserWindow, Tray, app, clipboard, ipcMain, screen } from 'electron';
 import os from 'node:os';
 import QRCode from 'qrcode';
 import {
+  type Contact,
   DEFAULT_PORT,
   Envelope,
   PAIRING_PAYLOAD_VERSION,
@@ -11,6 +13,7 @@ import {
   assertNever,
 } from '@phonelink/shared';
 import { Advertiser } from './advertiser';
+import { ClipboardHistory } from './clipboardHistory';
 import { ClipboardSync } from './clipboardSync';
 import { FileTransfers, type TransferProgress } from './fileTransfer';
 import { Keystore } from './keystore';
@@ -43,6 +46,20 @@ const advertiser = new Advertiser(DEFAULT_PORT);
 /** Last rejected connection attempt, shown in the popup instead of failing silently. */
 let lastRejection: string | null = null;
 const clipboardSync = new ClipboardSync();
+/** The phone's address book, fetched once per connection for the contacts page. */
+let contacts: Contact[] | null = null;
+let contactsError: string | null = null;
+let contactsLoading = false;
+/** The latest call or text asked of the phone, shown as a status line on the contacts page. */
+let phoneAction: {
+  id: string;
+  kind: 'call' | 'text';
+  name: string;
+  status: 'pending' | 'ok' | 'error';
+  error?: string;
+} | null = null;
+/** Clips seen in either direction, for the popup's clipboard page. Memory only. */
+const clipboardHistory = new ClipboardHistory();
 /** Currently ringing call, shown as an in-app banner alongside the native notification. */
 let activeCall: { callerName: string | null; callerNumber: string } | null = null;
 const transfers = new FileTransfers();
@@ -54,6 +71,10 @@ let dumpFramePath: string | null =
   dumpIndex >= 0 ? (process.argv[dumpIndex + 1] ?? null) : null;
 let feed: FeedItem[] = [];
 let connection: ConnectionState = 'waiting';
+
+// The app is named ILink, but Electron derives userData from the app name; pin the
+// original folder so the keystore, and with it every existing pairing, survives the rename.
+app.setPath('userData', path.join(app.getPath('appData'), '@phonelink/mac-app'));
 
 // A menu bar utility has no business in the Dock.
 app.dock?.hide();
@@ -189,7 +210,11 @@ async function pushState(): Promise<void> {
     feed,
     qr: primary ? await pairingQrDataUrl(primary) : null,
     peerName: server.getPeerName(),
-    clipboardEnabled: clipboardSync.isEnabled(),
+    clipboardHistory: clipboardHistory.list(),
+    contacts,
+    contactsError,
+    contactsLoading,
+    phoneAction,
     transfer: transferProgress,
     transferMessage,
     activeCall,
@@ -198,13 +223,33 @@ async function pushState(): Promise<void> {
   });
 }
 
+function requestContacts(): void {
+  contactsLoading = server.send({ type: 'contacts_request' });
+  if (!contactsLoading) contactsError = 'Connect your phone to load contacts';
+  void pushState();
+}
+
+/** Asks the phone to call or text; the phone's phone_action_result settles the status. */
+function sendPhoneAction(
+  kind: 'call' | 'text',
+  name: string,
+  build: (id: string) => Envelope,
+): void {
+  const id = randomUUID();
+  const sent = server.send(build(id));
+  phoneAction = sent
+    ? { id, kind, name, status: 'pending' }
+    : { id, kind, name, status: 'error', error: 'Your phone is not connected' };
+  void pushState();
+}
+
 function updateTrayTitle(): void {
   const tooltip =
     connection === 'connected'
-      ? 'PhoneLink Clone — phone connected'
+      ? 'ILink — phone connected'
       : connection === 'paused'
-        ? 'PhoneLink Clone — disconnected (paused)'
-        : 'PhoneLink Clone — waiting for phone';
+        ? 'ILink — disconnected (paused)'
+        : 'ILink — waiting for phone';
   tray?.setToolTip(tooltip);
 }
 
@@ -245,7 +290,30 @@ function handleEnvelope(envelope: Envelope): void {
       }
       return;
 
+    case 'contacts_list':
+      console.log(`[contacts] ${envelope.contacts.length} from phone${envelope.error ? ` (${envelope.error})` : ''}`);
+      contacts = envelope.contacts;
+      contactsError = envelope.error ?? null;
+      contactsLoading = false;
+      void pushState();
+      return;
+
+    case 'phone_action_result':
+      console.log(`[phone] action ${envelope.ok ? 'ok' : `failed: ${envelope.error}`}`);
+      if (phoneAction?.id === envelope.id) {
+        phoneAction = {
+          ...phoneAction,
+          status: envelope.ok ? 'ok' : 'error',
+          error: envelope.error,
+        };
+        void pushState();
+      }
+      return;
+
     // Mac -> phone only; receiving one back would be the phone misbehaving.
+    case 'contacts_request':
+    case 'dial':
+    case 'sms_send':
     case 'call_action':
     case 'screen_control':
     case 'input_tap':
@@ -258,7 +326,10 @@ function handleEnvelope(envelope: Envelope): void {
       // Our own text coming back would restart the loop; the phone tags what it sends.
       if (envelope.sourceDevice !== 'mac') {
         console.log(`[clipboard] from phone, ${envelope.content.length} chars`);
-        clipboardSync.applyRemote(envelope.content);
+        if (clipboardSync.applyRemote(envelope.content)) {
+          clipboardHistory.add(envelope.content, 'phone');
+          void pushState();
+        }
       }
       return;
 
@@ -315,6 +386,8 @@ app.whenReady().then(() => {
     console.log(`[link] ${next}`);
     connection = next;
     updateTrayTitle();
+    // Fetch the address book as soon as the phone is here, so the contacts page opens ready.
+    if (next === 'connected' && !contacts && !contactsLoading) requestContacts();
     // A phone that walked away leaves no stale banners behind — including a ringing call.
     if (next !== 'connected') {
       presenter.dismissAll();
@@ -342,6 +415,8 @@ app.whenReady().then(() => {
 
   clipboardSync.on('changed', content => {
     console.log(`[clipboard] local change, ${content.length} chars -> phone`);
+    clipboardHistory.add(content, 'mac');
+    void pushState();
     server.send({
       type: 'clipboard_update',
       content,
@@ -456,8 +531,27 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.handle('toggle-clipboard', () => {
-    clipboardSync.setEnabled(!clipboardSync.isEnabled());
+  ipcMain.handle('contacts-refresh', () => requestContacts());
+  ipcMain.handle('phone-call', (_event, number: unknown, name: unknown) => {
+    if (typeof number !== 'string' || !number) return;
+    sendPhoneAction('call', String(name ?? number), id => ({ type: 'dial', id, number }));
+  });
+  ipcMain.handle('phone-text', (_event, number: unknown, body: unknown, name: unknown) => {
+    if (typeof number !== 'string' || !number || typeof body !== 'string' || !body.trim()) return;
+    sendPhoneAction('text', String(name ?? number), id => ({ type: 'sms_send', id, number, body }));
+  });
+
+  // Copying a past clip puts it back on the clipboard; the next poll then syncs it to the
+  // phone and moves it to the top of the history, exactly like a fresh copy.
+  ipcMain.handle('clip-copy', (_event, id: unknown) => {
+    const entry = typeof id === 'string' ? clipboardHistory.get(id) : undefined;
+    if (entry) clipboard.writeText(entry.text);
+  });
+  ipcMain.handle('clip-delete', (_event, id: unknown) => {
+    if (typeof id === 'string' && clipboardHistory.remove(id)) void pushState();
+  });
+  ipcMain.handle('clip-clear', () => {
+    clipboardHistory.clear();
     void pushState();
   });
 

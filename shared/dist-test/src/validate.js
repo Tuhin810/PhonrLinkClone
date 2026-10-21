@@ -90,6 +90,44 @@ function validateEnvelope(value) {
             }
             return { type, action };
         }
+        case 'contacts_request':
+            return { type };
+        case 'contacts_list': {
+            const raw = o['contacts'];
+            if (!Array.isArray(raw))
+                throw new ProtocolError('"contacts" must be an array');
+            const contacts = raw.map(item => {
+                if (typeof item !== 'object' || item === null) {
+                    throw new ProtocolError('each contact must be an object');
+                }
+                const c = item;
+                const phones = c['phones'];
+                if (!Array.isArray(phones))
+                    throw new ProtocolError('"phones" must be an array');
+                return {
+                    id: str(c, 'id'),
+                    name: str(c, 'name'),
+                    starred: c['starred'] === true,
+                    phones: phones.map(phone => {
+                        if (typeof phone !== 'object' || phone === null) {
+                            throw new ProtocolError('each phone must be an object');
+                        }
+                        return { number: str(phone, 'number'), label: optStr(phone, 'label') };
+                    }),
+                };
+            });
+            return { type, contacts, error: optStr(o, 'error') };
+        }
+        case 'dial':
+            return { type, id: str(o, 'id'), number: str(o, 'number') };
+        case 'sms_send':
+            return { type, id: str(o, 'id'), number: str(o, 'number'), body: str(o, 'body') };
+        case 'phone_action_result': {
+            const ok = o['ok'];
+            if (typeof ok !== 'boolean')
+                throw new ProtocolError('"ok" must be a boolean');
+            return { type, id: str(o, 'id'), ok, error: optStr(o, 'error') };
+        }
         case 'clipboard_update': {
             const sourceDevice = str(o, 'sourceDevice');
             if (sourceDevice !== 'phone' && sourceDevice !== 'mac') {

@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">PhoneLinkClone</string>
-    <string name="remote_input_description">Lets your paired Mac tap, swipe and navigate on this phone while mirroring the screen. PhoneLink never reads what is on screen.</string>
+    <string name="app_name">ILink</string>
+    <string name="remote_input_description">Lets your paired Mac tap, swipe and navigate on this phone while mirroring the screen. ILink never reads what is on screen.</string>
 </resources>

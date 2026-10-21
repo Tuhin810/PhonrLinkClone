@@ -78,6 +78,41 @@ describe('envelope validation', () => {
       null,
     );
   });
+
+  it('accepts a contacts list and normalises missing fields', () => {
+    const envelope = parseEnvelope(
+      JSON.stringify({
+        type: 'contacts_list',
+        contacts: [{ id: '7', name: 'Mom', phones: [{ number: '+91 98000 00000' }] }],
+      }),
+    );
+    assert.equal(envelope.type, 'contacts_list');
+    if (envelope.type !== 'contacts_list') return;
+    assert.equal(envelope.contacts[0]?.starred, false);
+    assert.equal(envelope.contacts[0]?.phones[0]?.label, undefined);
+  });
+
+  it('rejects a contact whose phones are not a list', () => {
+    assert.equal(
+      tryParseEnvelope(
+        JSON.stringify({
+          type: 'contacts_list',
+          contacts: [{ id: '7', name: 'Mom', phones: '+91 98000 00000' }],
+        }),
+      ),
+      null,
+    );
+  });
+
+  it('requires a body to send a text', () => {
+    assert.equal(tryParseEnvelope('{"type":"sms_send","id":"1","number":"123"}'), null);
+    const envelope = parseEnvelope('{"type":"sms_send","id":"1","number":"123","body":"hi"}');
+    assert.equal(envelope.type, 'sms_send');
+  });
+
+  it('requires a boolean outcome on a phone action result', () => {
+    assert.equal(tryParseEnvelope('{"type":"phone_action_result","id":"1","ok":"yes"}'), null);
+  });
 });
 
 describe('pairing payload', () => {

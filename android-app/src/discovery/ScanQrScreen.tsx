@@ -43,7 +43,7 @@ export function ScanQrScreen({ onScanned, onCancel }: Props) {
         if (!code.value) continue;
         const payload = parsePairingPayload(code.value);
         if (!payload) {
-          setError("That QR code isn't a PhoneLink pairing code.");
+          setError("That QR code isn't an ILink pairing code.");
           continue;
         }
         setHandled(true);

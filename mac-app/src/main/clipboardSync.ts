@@ -21,7 +21,6 @@ export interface ClipboardSyncEvents {
 export class ClipboardSync extends EventEmitter<ClipboardSyncEvents> {
   private timer: NodeJS.Timeout | null = null;
   private lastSeen: string | null = null;
-  private enabled = true;
 
   start(): void {
     if (this.timer) return;
@@ -36,25 +35,15 @@ export class ClipboardSync extends EventEmitter<ClipboardSyncEvents> {
     this.timer = null;
   }
 
-  setEnabled(enabled: boolean): void {
-    this.enabled = enabled;
-    // Re-seed so text copied while disabled is not replayed on re-enable.
-    if (enabled) this.lastSeen = clipboard.readText();
-  }
-
-  isEnabled(): boolean {
-    return this.enabled;
-  }
-
-  /** Applies an update received from the phone. */
-  applyRemote(content: string): void {
-    if (!this.enabled || content === this.lastSeen) return;
+  /** Applies an update received from the phone. Returns false if it was already current. */
+  applyRemote(content: string): boolean {
+    if (content === this.lastSeen) return false;
     this.lastSeen = content;
     clipboard.writeText(content);
+    return true;
   }
 
   private poll(): void {
-    if (!this.enabled) return;
     const text = clipboard.readText();
     if (!text || text === this.lastSeen) return;
     if (text.length > CLIPBOARD_MAX_BYTES) {
