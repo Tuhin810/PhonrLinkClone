@@ -40,6 +40,10 @@
       </intent>
     </queries>
 
+    <!-- usesCleartextTraffic is "true" in every build, not just debug: the link to the Mac is a
+         plain ws:// socket on the LAN (a self-signed TLS cert would need its own trust story),
+         and every frame on it is already end-to-end encrypted with the paired keys. Release
+         builds default to blocking cleartext, which left the socket unable to connect at all. -->
     <application
       android:name=".MainApplication"
       android:label="@string/app_name"
@@ -47,7 +51,7 @@
       android:roundIcon="@mipmap/ic_launcher_round"
       android:allowBackup="false"
       android:theme="@style/AppTheme"
-      android:usesCleartextTraffic="${usesCleartextTraffic}"
+      android:usesCleartextTraffic="true"
       android:supportsRtl="true">
       <activity
         android:name=".MainActivity"

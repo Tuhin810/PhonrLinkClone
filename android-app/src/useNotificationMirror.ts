@@ -155,9 +155,23 @@ export function useNotificationMirror() {
   }, []);
 
   useEffect(() => {
-    getManualHost().then(setManualHostState).catch(() => undefined);
-    getIdentity().then(setIdentity).catch(() => undefined);
-    getPairedMac().then(setPaired).catch(() => undefined);
+    // Without these the link never dials, so a failure must be visible in logcat, not
+    // swallowed: release builds show no JS console, and "Not paired" alone explains nothing.
+    const report = (what: string) => (error: Error) =>
+      ScreenCapture.log(`startup: ${what} failed: ${error?.message ?? error}`);
+    getManualHost().then(setManualHostState).catch(report('manual host'));
+    getIdentity()
+      .then(value => {
+        ScreenCapture.log('startup: identity ready');
+        setIdentity(value);
+      })
+      .catch(report('identity'));
+    getPairedMac()
+      .then(value => {
+        ScreenCapture.log(`startup: paired mac ${value ? value.host : 'none'}`);
+        setPaired(value);
+      })
+      .catch(report('paired mac'));
   }, []);
 
   // Foreground service and the notification listener are independent of any Mac being found.
@@ -227,9 +241,14 @@ export function useNotificationMirror() {
     // Mac or a fresh token the Mac would reject us anyway — so do not even dial.
     const current = latest.current;
     if (!target || !current.identity || (!pairedPubKey && !pendingToken)) {
+      ScreenCapture.log(
+        `link: not dialing (target ${target ?? 'none'}, identity ${current.identity ? 'yes' : 'no'}, ` +
+          `paired ${pairedPubKey ? 'yes' : 'no'}, token ${pendingToken ? 'yes' : 'no'})`,
+      );
       setConnection('disconnected');
       return;
     }
+    ScreenCapture.log(`link: dialing ${target}`);
     const client = new LinkClient({
       url: macWsUrl(target),
       identity: current.identity,
@@ -314,7 +333,9 @@ export function useNotificationMirror() {
                   deviceName: macName,
                   pubKey: macPubKey,
                 };
-                setPairedMac(record).catch(() => undefined);
+                setPairedMac(record).catch((error: Error) =>
+                  ScreenCapture.log(`pairing: saving mac failed: ${error?.message ?? error}`),
+                );
                 return record;
               })(),
         );
@@ -379,7 +400,11 @@ export function useNotificationMirror() {
 
   /** Called after scanning the Mac's QR: address plus the one-time pairing token. */
   const beginPairing = useCallback(async (host: string, token: string | null) => {
-    await setManualHost(host);
+    ScreenCapture.log(`pairing: scanned ${host}, token ${token ? 'present' : 'missing'}`);
+    // Use the scanned address even if persisting it fails; pairing must not hinge on storage.
+    await setManualHost(host).catch((error: Error) =>
+      ScreenCapture.log(`pairing: saving address failed: ${error?.message ?? error}`),
+    );
     setManualHostState(host);
     setPendingToken(token);
   }, []);

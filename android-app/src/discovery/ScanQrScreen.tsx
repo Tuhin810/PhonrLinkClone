@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -30,6 +30,14 @@ export function ScanQrScreen({ onScanned, onCancel }: Props) {
   const { hasPermission, requestPermission } = useCameraPermission();
   const [error, setError] = useState<string | null>(null);
   const [handled, setHandled] = useState(false);
+  // The scanner reports the same code many times per second, faster than state updates land;
+  // a ref makes the first valid read the only one that pairs.
+  const handledRef = useRef(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+  }, []);
 
   useEffect(() => {
     if (!hasPermission) requestPermission().catch(() => undefined);
@@ -38,7 +46,7 @@ export function ScanQrScreen({ onScanned, onCancel }: Props) {
   const handleCodes = useCallback(
     (codes: { value?: string }[]) => {
       // The scanner fires continuously; act once and let the parent unmount us.
-      if (handled) return;
+      if (handledRef.current) return;
       for (const code of codes) {
         if (!code.value) continue;
         const payload = parsePairingPayload(code.value);
@@ -46,15 +54,29 @@ export function ScanQrScreen({ onScanned, onCancel }: Props) {
           setError("That QR code isn't an ILink pairing code.");
           continue;
         }
+        handledRef.current = true;
         setHandled(true);
+        // Stop the camera first and leave this screen a beat later: tearing the preview down
+        // in the same frame as unmounting it left a frozen black half-screen on some phones.
         // token is absent in v1 payloads; the Mac will then reject us as unpaired, which is
         // the correct outcome rather than connecting unauthenticated.
-        onScanned(payload.host, payload.token ?? null, payload.device);
+        closeTimer.current = setTimeout(
+          () => onScanned(payload.host, payload.token ?? null, payload.device),
+          250,
+        );
         return;
       }
     },
-    [handled, onScanned],
+    [onScanned],
   );
+
+  // Same order as a successful scan: stop the camera, then leave.
+  const cancel = useCallback(() => {
+    if (handledRef.current) return;
+    handledRef.current = true;
+    setHandled(true);
+    closeTimer.current = setTimeout(onCancel, 250);
+  }, [onCancel]);
 
   const codeScanner = useCodeScanner({
     codeTypes: ['qr'],
@@ -83,6 +105,9 @@ export function ScanQrScreen({ onScanned, onCancel }: Props) {
           device={device}
           isActive={!handled}
           codeScanner={codeScanner}
+          // A TextureView composites with the rest of the UI and goes away with it; the default
+          // SurfaceView is a separate layer that could outlive the screen and stay on top.
+          androidPreviewViewType="texture-view"
         />
       )}
 
@@ -90,7 +115,7 @@ export function ScanQrScreen({ onScanned, onCancel }: Props) {
         <Text style={styles.hint}>
           {error ?? 'Point at the QR code in the Mac app’s menu bar popup'}
         </Text>
-        <TouchableOpacity onPress={onCancel}>
+        <TouchableOpacity onPress={cancel}>
           <Text style={styles.action}>Cancel</Text>
         </TouchableOpacity>
       </View>
